@@ -1,0 +1,817 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Measured From Here — a scroll to the edge of the observable universe</title>
+<meta name="description" content="A logarithmic scroll from eye level to the edge of the observable universe. Every tick is ten times the last.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:opsz,wght@6..96,400;6..96,500&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#10151c;
+    --ink-dim:rgba(16,21,28,.58);
+    --ink-faint:rgba(16,21,28,.30);
+    --hair:rgba(16,21,28,.16);
+    --accent:#a35d12;
+    --display:"Bodoni Moda","Didot","Times New Roman",serif;
+    --body:"IBM Plex Sans",ui-sans-serif,system-ui,sans-serif;
+    --mono:"IBM Plex Mono",ui-monospace,"SF Mono",Menlo,monospace;
+    --rail:78px;
+    --gutter:34px;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    margin:0;
+    background:#8fb8dc;
+    color:var(--ink);
+    font-family:var(--body);
+    font-weight:300;
+    -webkit-font-smoothing:antialiased;
+    overflow-x:hidden;
+  }
+  #sky{position:fixed;inset:0;width:100%;height:100%;z-index:0;display:block}
+  #track{position:relative;z-index:1}
+
+  /* ---------- HUD ---------- */
+  .hud{
+    position:fixed;top:0;left:0;right:0;z-index:5;
+    display:flex;align-items:flex-start;justify-content:space-between;
+    padding:20px var(--gutter);
+    pointer-events:none;
+    mix-blend-mode:normal;
+  }
+  .readout{font-family:var(--mono);line-height:1.25}
+  .readout .lab{
+    font-size:9.5px;letter-spacing:.20em;text-transform:uppercase;
+    color:var(--ink-faint);display:block;margin-bottom:5px;
+  }
+  .readout .big{font-size:26px;font-weight:500;letter-spacing:-.01em;display:block}
+  .readout .sub{font-size:11px;color:var(--ink-dim);display:block;margin-top:6px}
+  .readout .sub b{font-weight:500;color:var(--ink)}
+
+  .scope{text-align:right;font-family:var(--mono)}
+  .scope-frame{
+    width:112px;height:112px;margin-left:auto;position:relative;
+    display:flex;align-items:center;justify-content:center;
+    border:1px solid var(--hair);border-radius:50%;
+  }
+  .scope-frame::after{
+    content:"";position:absolute;inset:14px;border-radius:50%;
+    border:1px dashed var(--hair);
+  }
+  .scope-dot{
+    background:var(--accent);border-radius:50%;
+    width:5px;height:5px;position:relative;z-index:1;
+  }
+  .scope .lab{
+    font-size:9.5px;letter-spacing:.18em;text-transform:uppercase;
+    color:var(--ink-faint);display:block;margin-bottom:8px;
+  }
+  .scope .cap{font-size:10.5px;color:var(--ink-dim);display:block;margin-top:8px}
+
+  /* ---------- chapter nav ---------- */
+  .chapters{
+    position:fixed;right:var(--gutter);bottom:26px;z-index:6;
+    display:flex;flex-direction:column;align-items:flex-end;gap:7px;
+    font-family:var(--mono);font-size:10.5px;letter-spacing:.06em;
+  }
+  .chapters button{
+    background:none;border:0;padding:2px 0 2px 14px;margin:0;cursor:pointer;
+    color:var(--ink-faint);font:inherit;text-align:right;position:relative;
+    transition:color .25s ease;
+  }
+  .chapters button::before{
+    content:"";position:absolute;right:calc(100% + 8px);top:50%;
+    width:10px;height:1px;background:currentColor;opacity:.5;
+  }
+  .chapters button:hover,.chapters button:focus-visible{color:var(--ink)}
+  .chapters button[aria-current="true"]{color:var(--accent)}
+
+  /* ---------- ruler ---------- */
+  .ruler{position:absolute;top:0;left:var(--rail);width:1px;background:var(--hair)}
+  .tick{position:absolute;left:0;height:1px;background:var(--hair)}
+  .tick.minor{width:5px;opacity:.7}
+  .tick.major{width:15px;background:var(--ink-faint)}
+  .tick-label{
+    position:absolute;left:22px;top:-8px;
+    font-family:var(--mono);font-size:10px;letter-spacing:.10em;
+    color:var(--ink-faint);white-space:nowrap;
+  }
+  .tick.unitswap .tick-label{color:var(--accent);letter-spacing:.16em}
+  .tick.unitswap{width:26px;background:var(--accent);opacity:.8}
+
+  /* ---------- stops ---------- */
+  .stop{
+    position:absolute;left:calc(var(--rail) + 54px);
+    width:min(430px, calc(100vw - var(--rail) - 54px - var(--gutter)));
+    opacity:0;transform:translateY(16px);
+    transition:opacity .7s ease, transform .7s cubic-bezier(.16,.84,.44,1);
+  }
+  .stop.seen{opacity:1;transform:none}
+  .stop .eyebrow{
+    font-family:var(--mono);font-size:10px;letter-spacing:.20em;
+    text-transform:uppercase;color:var(--ink-faint);
+    display:flex;align-items:center;gap:9px;margin-bottom:12px;
+  }
+  .stop .eyebrow::before{
+    content:"";width:7px;height:7px;border-radius:50%;
+    border:1px solid var(--ink-faint);flex:none;
+  }
+  .stop.human .eyebrow{color:var(--accent)}
+  .stop.human .eyebrow::before{background:var(--accent);border-color:var(--accent)}
+  .stop.unit .eyebrow::before{border-radius:0;transform:rotate(45deg)}
+  .stop h2{
+    font-family:var(--display);font-weight:400;
+    font-size:clamp(28px,4.4vw,44px);line-height:1.02;
+    letter-spacing:-.015em;margin:0 0 14px;
+  }
+  .stop .dist{
+    font-family:var(--mono);font-size:13px;font-weight:500;letter-spacing:.02em;
+    margin:0 0 16px;padding-bottom:16px;border-bottom:1px solid var(--hair);
+  }
+  .stop .dist span{color:var(--ink-dim);font-weight:400}
+  .stop p.note{font-size:15px;line-height:1.62;color:var(--ink-dim);margin:0;max-width:42ch}
+  .stop.unit h2{font-style:italic}
+
+  /* ---------- intro / outro ---------- */
+  .panel{
+    position:absolute;right:var(--gutter);
+    display:flex;flex-direction:column;justify-content:center;
+  }
+  .panel.intro,.panel.outro{left:calc(var(--rail) + 54px)}
+  .intro h1{
+    font-family:var(--display);font-weight:400;
+    font-size:clamp(46px,10.5vw,132px);line-height:.92;letter-spacing:-.03em;
+    margin:0 0 26px;max-width:14ch;
+  }
+  .intro .kicker{
+    font-family:var(--mono);font-size:11px;letter-spacing:.24em;
+    text-transform:uppercase;color:var(--ink-faint);margin:0 0 26px;
+  }
+  .intro p{font-size:16px;line-height:1.6;color:var(--ink-dim);max-width:46ch;margin:0 0 12px}
+  .cue{
+    font-family:var(--mono);font-size:10.5px;letter-spacing:.20em;text-transform:uppercase;
+    color:var(--ink-faint);margin-top:44px;display:flex;align-items:center;gap:12px;
+  }
+  .cue i{display:block;width:34px;height:1px;background:currentColor;animation:slide 2.6s ease-in-out infinite}
+  @keyframes slide{0%,100%{transform:translateX(0);opacity:.35}50%{transform:translateX(9px);opacity:1}}
+
+  .outro h2{
+    font-family:var(--display);font-weight:400;font-style:italic;
+    font-size:clamp(30px,5.5vw,58px);line-height:1.04;margin:0 0 22px;max-width:20ch;
+  }
+  .outro p{font-size:15px;line-height:1.65;color:var(--ink-dim);max-width:48ch;margin:0 0 14px}
+  .reset{
+    margin-top:34px;align-self:flex-start;
+    font-family:var(--mono);font-size:11px;letter-spacing:.16em;text-transform:uppercase;
+    color:var(--ink);background:none;cursor:pointer;
+    border:1px solid var(--hair);border-radius:2px;padding:13px 20px;
+    transition:border-color .25s ease;
+  }
+  .reset:hover,.reset:focus-visible{border-color:var(--ink-dim)}
+  .colophon{
+    font-family:var(--mono);font-size:10px;line-height:1.7;letter-spacing:.04em;
+    color:var(--ink-faint);margin-top:52px;max-width:52ch;
+  }
+
+  :focus-visible{outline:1px solid var(--accent);outline-offset:3px}
+
+  @media (max-width:760px){
+    :root{--rail:26px;--gutter:20px}
+    .hud{padding:14px var(--gutter)}
+    .readout .big{font-size:20px}
+    .scope-frame{width:74px;height:74px}
+    .scope .cap{font-size:9px}
+    .stop{left:calc(var(--rail) + 26px);width:calc(100vw - var(--rail) - 26px - var(--gutter))}
+    .panel.intro,.panel.outro{left:calc(var(--rail) + 26px)}
+    .tick-label{left:18px;font-size:9px}
+    .chapters{bottom:16px;font-size:9.5px;gap:5px}
+  }
+  @media (prefers-reduced-motion:reduce){
+    html{scroll-behavior:auto}
+    .stop{transition:none;opacity:1;transform:none}
+    .cue i{animation:none}
+  }
+</style>
+</head>
+<body>
+
+<canvas id="sky" aria-hidden="true"></canvas>
+
+<div class="hud">
+  <div class="readout">
+    <span class="lab">Distance from you</span>
+    <span class="big" id="r-dist">1.7 m</span>
+    <span class="sub">light crosses this in <b id="r-time">5.67 ns</b></span>
+  </div>
+  <div class="scope" aria-hidden="true">
+    <span class="lab">You are inside</span>
+    <div class="scope-frame"><div class="scope-dot" id="scope-dot"></div></div>
+    <span class="cap" id="scope-cap">the atmosphere</span>
+  </div>
+</div>
+
+<nav class="chapters" id="chapters" aria-label="Jump to a scale"></nav>
+
+<main id="track">
+  <section class="panel intro" id="intro">
+    <p class="kicker">A logarithmic climb</p>
+    <h1>Measured from here</h1>
+    <p>You are standing still. Everything on this page is measured outward from your eyes, and the scale is logarithmic: every mark on the ruler is ten times the one before it.</p>
+    <p>That is the only way a single page can hold both a staircase and the observable universe. It also means the last quarter of your scroll covers more ground than everything before it combined.</p>
+    <div class="cue"><i></i> Scroll to leave</div>
+  </section>
+
+  <div class="ruler" id="ruler"></div>
+  <div id="stops"></div>
+
+  <section class="panel outro" id="outro">
+    <h2>Everything you just passed is still there, all at once.</h2>
+    <p>The light from the last stop has been travelling for nearly the whole history of the universe. The light from the first stop reached you before you finished reading this word.</p>
+    <p>Both are happening now, from where you are standing.</p>
+    <button class="reset" id="reset">Return to eye level</button>
+    <p class="colophon">
+      Distances are best current estimates and are rounded. Beyond a few billion light-years, space itself has expanded while light was in transit, so present-day distance and light-travel time stop agreeing; the last two stops explain the split. Voyager 1's position is extrapolated from its published trajectory and drifts slightly from the official figure. Positions on the ruler are spaced logarithmically, then nudged apart where two stops would otherwise overlap.
+    </p>
+  </section>
+</main>
+
+<script>
+(function(){
+  "use strict";
+
+  var C = 299792458;
+  var AU = 1.495978707e11;
+  var LY = 9.4607304726e15;
+  var YEAR = 3.15576e7;
+
+  // distance in metres, kind: natural | human | unit
+  var STOPS = [
+    {d:1.7, kind:"unit", eyebrow:"Zero", name:"Eye level",
+     note:"Where you are standing. The ruler on the left starts here, and each labelled mark on it is ten times the height of the last."},
+
+    {d:330, kind:"human", eyebrow:"Built", name:"Eiffel Tower",
+     note:"Iron, 330 metres, and the tallest thing anyone had built for the next forty-one years."},
+
+    {d:828, kind:"human", eyebrow:"Built", name:"Burj Khalifa",
+     note:"The tallest structure standing. From the top, the horizon is about 100 km away and the curve of the Earth is just barely arguable."},
+
+    {d:8849, kind:"natural", eyebrow:"Atmosphere", name:"Summit of Everest",
+     note:"Air pressure is a third of what it is at sea level. Above this line the atmosphere stops holding anything you can survive on for long."},
+
+    {d:12000, kind:"human", eyebrow:"Atmosphere", name:"Cruising altitude",
+     note:"The top of the troposphere. Weather happens below you now, which is the entire reason planes fly up here."},
+
+    {d:18900, kind:"natural", eyebrow:"Atmosphere", name:"The Armstrong limit",
+     note:"Pressure drops low enough that water boils at body temperature. The fluid in your lungs and eyes would boil — not from heat, but from the absence of anything pressing back."},
+
+    {d:41419, kind:"human", eyebrow:"Record", name:"Highest skydive",
+     note:"Alan Eustace stepped off a balloon here in 2014, beating Felix Baumgartner's jump by two kilometres, and broke the sound barrier with his body on the way down."},
+
+    {d:100000, kind:"unit", eyebrow:"Threshold", name:"The Kármán line",
+     note:"The agreed border of space, though nothing physically changes as you cross it. The air is simply too thin for a wing to hold you up, so anything staying here has to move fast enough to be in orbit instead."},
+
+    {d:408000, kind:"human", eyebrow:"Orbit", name:"International Space Station",
+     note:"Someone has been living here without a break since November 2000. It laps the Earth every ninety-three minutes, which works out to sixteen sunrises a day."},
+
+    {d:540000, kind:"human", eyebrow:"Orbit", name:"Hubble Space Telescope",
+     note:"Above the atmosphere that smears every image taken from the ground. Servicing missions ended in 2009 and its orbit has been quietly decaying ever since."},
+
+    {d:20200000, kind:"human", eyebrow:"Orbit", name:"GPS satellites",
+     note:"Their clocks run 38 microseconds a day faster than yours — weaker gravity up there, partly cancelled by their speed. Left uncorrected, your phone's idea of where you are would drift by about ten kilometres a day."},
+
+    {d:35786000, kind:"human", eyebrow:"Orbit", name:"Geostationary orbit",
+     note:"At exactly this height an orbit takes one day, so a satellite hangs over the same patch of ground forever. Every fixed dish on Earth is aimed at this one ring."},
+
+    {d:384400000, kind:"natural", eyebrow:"Neighbours", name:"The Moon",
+     note:"1.28 light-seconds away. Every other planet in the solar system would fit, side by side, in the gap between here and the ground."},
+
+    {d:400171000, kind:"human", eyebrow:"Record", name:"As far as anyone has been",
+     note:"Apollo 13, April 1970, swinging wide around the far side of the Moon on a free-return trajectory after the oxygen tank blew. Still the record, fifty-six years later."},
+
+    {d:1.5e9, kind:"human", eyebrow:"Instruments", name:"James Webb Space Telescope",
+     note:"Parked at L2, a spot where the Sun's and Earth's gravity together let it keep pace with us for almost no fuel. It sits with its back permanently turned to both."},
+
+    {d:0.28*AU, kind:"natural", eyebrow:"Planets", name:"Venus at its closest",
+     note:"The nearest another planet ever gets. Surface pressure equal to standing 900 metres underwater, at a temperature that melts lead."},
+
+    {d:0.373*AU, kind:"natural", eyebrow:"Planets", name:"Mars at its closest",
+     note:"True for a few weeks every twenty-six months. A radio message takes three minutes each way at best, twenty-two at worst, which is why rovers have to be able to think for themselves."},
+
+    {d:AU, kind:"unit", eyebrow:"New unit", name:"The Sun, at one astronomical unit",
+     note:"The kilometre gives out here. From now on the ruler counts in AU: one AU is this distance, Earth to Sun. Light crosses it in 8 minutes 19 seconds, so you have never once seen the Sun as it is — only as it was."},
+
+    {d:5.2*AU, kind:"natural", eyebrow:"Planets", name:"Jupiter",
+     note:"5.2 AU. Heavy enough that it and the Sun both orbit a point that sits just outside the Sun's surface. Strictly speaking, Jupiter does not go around the Sun."},
+
+    {d:9.58*AU, kind:"natural", eyebrow:"Planets", name:"Saturn",
+     note:"The rings run 280,000 km wide and, in most places, about ten metres thick — a sheet of ice the depth of a house spread across a distance most of the way to the Moon."},
+
+    {d:30*AU, kind:"natural", eyebrow:"Planets", name:"Neptune",
+     note:"30 AU, and the last planet. Pluto averages 39 AU on an orbit tilted and stretched enough that for twenty years at a stretch it comes in closer than Neptune."},
+
+    {d:40.5*AU, kind:"human", eyebrow:"Record", name:"The Pale Blue Dot",
+     note:"Voyager 1 turned around here in February 1990 and photographed the Earth from 40 AU. It came out less than a pixel across, sitting in a stray beam of sunlight scattered inside the camera."},
+
+    {d:123*AU, kind:"natural", eyebrow:"Threshold", name:"The heliopause",
+     note:"123 AU, where the solar wind finally loses to the wind between the stars. By one reasonable definition, this is where the solar system stops."},
+
+    {d:2.56e13, kind:"human", live:"voyager", eyebrow:"Right now", name:"Voyager 1, today",
+     note:"The farthest human object, still sending on about 22 watts — less than a fridge bulb — from a transmitter switched on in 1977."},
+
+    {d:2000*AU, kind:"natural", eyebrow:"Threshold", name:"The Oort cloud begins",
+     note:"2,000 AU. A shell of ice reaching outward for most of the next light-year. Nobody has ever seen it; we know it from where long-period comets keep falling in from."},
+
+    {d:LY, kind:"unit", eyebrow:"New unit", name:"One light-year",
+     note:"The AU runs out too. A light-year is how far light gets in a year: 63,241 AU. It is a unit of length that has a unit of time hidden inside it, which is why looking outward is the same act as looking backward."},
+
+    {d:4.24*LY, kind:"natural", eyebrow:"Stars", name:"Proxima Centauri",
+     note:"4.24 light-years, the nearest star. At Voyager 1's speed, covering this would take roughly 73,000 years — if it were pointed there, which it isn't."},
+
+    {d:8.6*LY, kind:"natural", eyebrow:"Stars", name:"Sirius",
+     note:"8.6 ly. The brightest star in Earth's night sky, and near enough that the light arriving tonight is under a decade old. Almost nothing else up there is."},
+
+    {d:100*LY, kind:"human", eyebrow:"Reach", name:"The edge of the radio bubble",
+     note:"About 100 light-years. Broadcasts strong enough to leak past the atmosphere are roughly a century old, so this sphere is the absolute outer limit of anywhere that could have heard anything from us. Set against the rest of this page, it is very small."},
+
+    {d:550*LY, kind:"natural", eyebrow:"Stars", name:"Betelgeuse",
+     note:"Around 550 ly. It will go supernova sometime in the next hundred thousand years, and when it does it will be bright enough to read by at night and easily visible in daylight."},
+
+    {d:1344*LY, kind:"natural", eyebrow:"Nebulae", name:"Orion Nebula",
+     note:"1,344 ly. Visible from a dark garden as the fuzzy middle star of Orion's sword. Stars are still condensing inside it right now."},
+
+    {d:7000*LY, kind:"natural", eyebrow:"Nebulae", name:"Pillars of Creation",
+     note:"7,000 ly, inside the Eagle Nebula. Columns of cold gas being eaten away from the outside by radiation from the stars they themselves produced."},
+
+    {d:26000*LY, kind:"natural", eyebrow:"The galaxy", name:"Sagittarius A*",
+     note:"26,000 ly, the centre of the Milky Way. Four million times the mass of the Sun packed into a region smaller than Mercury's orbit. In 2022 we photographed its shadow."},
+
+    {d:100000*LY, kind:"natural", eyebrow:"The galaxy", name:"Outside the Milky Way",
+     note:"The disc is about 100,000 ly across and a thousand thick — proportionally flatter than a sheet of paper. Two hundred billion stars, and you are now far enough out to see the whole thing edge-on."},
+
+    {d:163000*LY, kind:"natural", eyebrow:"Local group", name:"Large Magellanic Cloud",
+     note:"163,000 ly. A satellite galaxy the Milky Way is slowly tearing apart and will finish absorbing in a couple of billion years."},
+
+    {d:2.5e6*LY, kind:"natural", eyebrow:"Local group", name:"Andromeda",
+     note:"2.5 million ly, and the farthest thing most people can see unaided. The light landing on your retina left before our species existed. It is falling toward us and arrives in about four billion years."},
+
+    {d:54e6*LY, kind:"natural", eyebrow:"Structure", name:"The Virgo Cluster",
+     note:"54 million ly. Around 1,300 galaxies held together by gravity, and our own local group is quietly falling toward it."},
+
+    {d:520e6*LY, kind:"natural", eyebrow:"Structure", name:"Laniakea",
+     note:"Our supercluster, 520 million ly across. It was defined in 2014 not by what sits inside it but by which way everything inside it is flowing — a watershed rather than an island."},
+
+    {d:700e6*LY, kind:"natural", eyebrow:"Structure", name:"The Boötes Void",
+     note:"700 million ly out and 330 million ly across, with almost nothing in it. If the Milky Way sat at its centre, we would not have worked out that other galaxies existed until the 1960s."},
+
+    {d:13.8e9*LY, kind:"unit", eyebrow:"The catch", name:"The light-travel horizon",
+     note:"13.8 billion light-years: as far as light could possibly have come since the universe began. But space has been stretching the entire time light was crossing it, so whatever emitted that light is much farther away now than the distance the light actually covered."},
+
+    {d:46.5e9*LY, kind:"natural", eyebrow:"The end", name:"The edge of the observable universe",
+     note:"46.5 billion light-years. That is the present distance of the material that let go of the cosmic microwave background 13.8 billion years ago. It is not the edge of the universe. It is only the edge of the part whose light has had time to arrive."}
+  ];
+
+  var CHAPTERS = [
+    {label:"Ground",       d:1.7},
+    {label:"Atmosphere",   d:12000},
+    {label:"Orbit",        d:408000},
+    {label:"Solar system", d:1.495978707e11},
+    {label:"Interstellar", d:9.4607e15},
+    {label:"The galaxy",   d:2.46e20},
+    {label:"Beyond",       d:2.37e22}
+  ];
+
+  // nested shells you are currently within: [inner edge, outer edge] in metres
+  var SHELLS = [
+    {a:1.7,     b:1.0e5,   label:"the atmosphere"},
+    {a:1.0e5,   b:4.0e8,   label:"Earth's neighbourhood"},
+    {a:4.0e8,   b:123*AU,  label:"the solar system"},
+    {a:123*AU,  b:1.0e16,  label:"the Oort cloud"},
+    {a:1.0e16,  b:4.73e20, label:"the Milky Way"},
+    {a:4.73e20, b:2.4e22,  label:"the Local Group"},
+    {a:2.4e22,  b:2.46e24, label:"Laniakea"},
+    {a:2.46e24, b:46.5e9*LY, label:"the observable universe"}
+  ];
+
+  var track   = document.getElementById("track");
+  var ruler   = document.getElementById("ruler");
+  var stopsEl = document.getElementById("stops");
+  var intro   = document.getElementById("intro");
+  var outro   = document.getElementById("outro");
+  var navEl   = document.getElementById("chapters");
+  var canvas  = document.getElementById("sky");
+  var ctx     = canvas.getContext("2d");
+  var rDist   = document.getElementById("r-dist");
+  var rTime   = document.getElementById("r-time");
+  var dotEl   = document.getElementById("scope-dot");
+  var capEl   = document.getElementById("scope-cap");
+
+  var reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  var LOGS = [], YS = [], introH = 0, outroH = 0, totalH = 0;
+  var chapterY = [];
+
+  /* ---------------- number formatting ---------------- */
+
+  function group(n, dp){
+    return n.toLocaleString("en-US", {minimumFractionDigits:dp, maximumFractionDigits:dp});
+  }
+  function trim(s){
+    return s.indexOf(".") < 0 ? s : s.replace(/0+$/,"").replace(/\.$/,"");
+  }
+  function sig(n){
+    if(n >= 1000) return group(Math.round(n), 0);
+    if(n >= 100)  return group(n, 0);
+    if(n >= 10)   return trim(group(n, 1));
+    return trim(group(n, 2));
+  }
+  function unitize(num, word){
+    return num + " " + (num === "1" ? word.replace(/s$/,"") : word);
+  }
+  function bigWords(n, unit){
+    if(n >= 1e9) return unitize(sig(n/1e9), "billion " + unit);
+    if(n >= 1e6) return unitize(sig(n/1e6), "million " + unit);
+    if(n >= 1e3) return unitize(group(Math.round(n), 0), unit);
+    return unitize(sig(n), unit);
+  }
+  function fmtDist(m){
+    if(m < 1)      return sig(m*100) + " cm";
+    if(m < 1000)   return sig(m) + " m";
+    if(m < 1e6)    return sig(m/1000) + " km";
+    if(m < 1.5e10) return group(Math.round(m/1000), 0) + " km";
+    if(m < 1e15)   return unitize(sig(m/AU), "AU");
+    return bigWords(m/LY, "light-years");
+  }
+  function fmtTime(m){
+    var s = m / C;
+    if(s < 1e-6)  return sig(s*1e9) + " ns";
+    if(s < 1e-3)  return sig(s*1e6) + " \u00b5s";
+    if(s < 1)     return sig(s*1e3) + " ms";
+    if(s < 90)    return sig(s) + " s";
+    if(s < 5400)  return sig(s/60) + " min";
+    if(s < 1.73e5)return unitize(sig(s/3600), "hours");
+    if(s < YEAR)  return unitize(sig(s/86400), "days");
+    return bigWords(s/YEAR, "years");
+  }
+  function tickLabel(m){
+    if(m < 1)      return sig(m*100) + " cm";
+    if(m < 1000)   return group(m,0) + " m";
+    if(m < 1.5e10) return group(Math.round(m/1000),0) + " km";
+    if(m < 1e15)   return unitize(sig(m/AU), "AU");
+    return bigWords(m/LY, "ly");
+  }
+
+  /* ---------------- layout ---------------- */
+
+  function layout(){
+    var W = window.innerWidth, H = window.innerHeight;
+    var narrow = W < 760;
+    var perDecade = narrow ? 620 : 900;
+    var minGap    = narrow ? 350 : 340;
+
+    introH = H;
+    outroH = Math.round(H * 0.95);
+
+    var base = Math.log10(STOPS[0].d);
+    LOGS = []; YS = [];
+    var prev = -Infinity;
+    for(var i=0;i<STOPS.length;i++){
+      var ideal = introH + (Math.log10(STOPS[i].d) - base) * perDecade;
+      var y = Math.max(ideal, prev + minGap);
+      if(i === 0) y = introH + Math.round(H * 0.18);
+      YS.push(y);
+      LOGS.push(Math.log10(STOPS[i].d));
+      prev = y;
+    }
+    totalH = YS[YS.length-1] + outroH;
+
+    track.style.height = totalH + "px";
+    intro.style.top = "0px";
+    intro.style.height = introH + "px";
+    outro.style.top = (YS[YS.length-1] + Math.round(H*0.30)) + "px";
+    outro.style.height = Math.round(H*0.6) + "px";
+
+    ruler.style.height = (YS[YS.length-1] + 40) + "px";
+
+    var frame = document.querySelector(".scope-frame");
+    RING = Math.max(18, (frame ? frame.clientWidth : 112)/2 - 12);
+
+    positionStops();
+    buildRuler();
+    buildChapters();
+    resizeCanvas();
+    update();
+  }
+
+  // piecewise-linear map, log10(metres) -> y
+  function logToY(l){
+    if(l <= LOGS[0]) return YS[0];
+    if(l >= LOGS[LOGS.length-1]) return YS[YS.length-1];
+    for(var i=1;i<LOGS.length;i++){
+      if(l <= LOGS[i]){
+        var t = (l - LOGS[i-1]) / (LOGS[i] - LOGS[i-1]);
+        return YS[i-1] + t * (YS[i] - YS[i-1]);
+      }
+    }
+    return YS[YS.length-1];
+  }
+  function yToLog(y){
+    if(y <= YS[0]) return LOGS[0];
+    if(y >= YS[YS.length-1]) return LOGS[LOGS.length-1];
+    for(var i=1;i<YS.length;i++){
+      if(y <= YS[i]){
+        var t = (y - YS[i-1]) / (YS[i] - YS[i-1]);
+        return LOGS[i-1] + t * (LOGS[i] - LOGS[i-1]);
+      }
+    }
+    return LOGS[LOGS.length-1];
+  }
+
+  /* ---------------- build ---------------- */
+
+  var stopNodes = [];
+
+  function voyagerAU(){
+    var epoch = Date.UTC(2025,0,1);
+    var years = (Date.now() - epoch) / 3.15576e10;
+    return 165.3 + years * 3.58;
+  }
+
+  function buildStops(){
+    var frag = document.createDocumentFragment();
+    STOPS.forEach(function(s, i){
+      var el = document.createElement("article");
+      el.className = "stop " + s.kind;
+
+      var d = s.d, distText, extra = "";
+      if(s.live === "voyager"){
+        var au = voyagerAU();
+        d = au * AU;
+        s.d = d;
+        distText = group(Math.round(au),0) + " AU";
+        extra = "  \u00b7  " + group(Math.round(d/1e9),0) + " million km";
+      } else {
+        distText = fmtDist(d);
+      }
+
+      el.innerHTML =
+        '<p class="eyebrow">' + s.eyebrow + '</p>' +
+        '<h2>' + s.name + '</h2>' +
+        '<p class="dist">' + distText +
+          '<span>' + extra + '  \u00b7  light crosses this in ' + fmtTime(d) + '</span></p>' +
+        '<p class="note">' + s.note + '</p>';
+
+      stopNodes.push(el);
+      frag.appendChild(el);
+    });
+    stopsEl.appendChild(frag);
+  }
+
+  function positionStops(){
+    for(var i=0;i<stopNodes.length;i++){
+      stopNodes[i].style.top = Math.round(YS[i] - 40) + "px";
+    }
+  }
+
+  function buildRuler(){
+    ruler.innerHTML = "";
+    var frag = document.createDocumentFragment();
+    var lo = LOGS[0], hi = LOGS[LOGS.length-1];
+    var swaps = {3:1, 11:1, 15:1};   // where the ruler changes unit: km, AU, light-years
+    for(var e = Math.ceil(lo); e <= Math.floor(hi); e++){
+      var val = Math.pow(10, e);
+      var y = logToY(e);
+      var t = document.createElement("div");
+      t.className = "tick major" + (swaps[e] ? " unitswap" : "");
+      t.style.top = Math.round(y) + "px";
+      t.innerHTML = '<span class="tick-label">' + tickLabel(val) + '</span>';
+      frag.appendChild(t);
+
+      for(var m=2;m<=9;m++){
+        var ml = e + Math.log10(m);
+        if(ml > hi) break;
+        var mt = document.createElement("div");
+        mt.className = "tick minor";
+        mt.style.top = Math.round(logToY(ml)) + "px";
+        frag.appendChild(mt);
+      }
+    }
+    ruler.appendChild(frag);
+  }
+
+  function buildChapters(){
+    navEl.innerHTML = "";
+    chapterY = [];
+    CHAPTERS.forEach(function(c, i){
+      var y = logToY(Math.log10(c.d)) - window.innerHeight * 0.34;
+      chapterY.push(y);
+      var b = document.createElement("button");
+      b.type = "button";
+      b.textContent = c.label;
+      b.addEventListener("click", function(){
+        window.scrollTo({top: Math.max(0, y), behavior: reduced ? "auto" : "smooth"});
+      });
+      navEl.appendChild(b);
+    });
+  }
+
+  /* ---------------- colour ---------------- */
+
+  function mix(a, b, t){
+    return [ a[0]+(b[0]-a[0])*t, a[1]+(b[1]-a[1])*t, a[2]+(b[2]-a[2])*t ];
+  }
+  function rgb(c, a){
+    return "rgba(" + Math.round(c[0]) + "," + Math.round(c[1]) + "," + Math.round(c[2]) + "," + (a===undefined?1:a) + ")";
+  }
+  // sky colour keyed to log10(metres) — roughly the real colour of the sky at that altitude
+  var SKY = [
+    {l:0.23, top:[122,166,206], bot:[186,212,232]},
+    {l:3.95, top:[ 64,110,166], bot:[126,166,204]},
+    {l:4.30, top:[ 26, 54,110], bot:[ 60, 96,150]},
+    {l:4.75, top:[ 10, 20, 52], bot:[ 22, 40, 78]},
+    {l:5.20, top:[  5,  8, 22], bot:[  9, 13, 30]},
+    {l:13.0, top:[  3,  5, 13], bot:[  5,  7, 16]},
+    {l:20.4, top:[  9,  7, 17], bot:[  6,  8, 18]},
+    {l:22.5, top:[  7,  5, 14], bot:[  4,  5, 13]},
+    {l:26.7, top:[  4,  4, 11], bot:[  8,  6, 14]}
+  ];
+  function skyAt(l){
+    if(l <= SKY[0].l) return {top:SKY[0].top, bot:SKY[0].bot};
+    for(var i=1;i<SKY.length;i++){
+      if(l <= SKY[i].l){
+        var t = (l - SKY[i-1].l) / (SKY[i].l - SKY[i-1].l);
+        return {top: mix(SKY[i-1].top, SKY[i].top, t), bot: mix(SKY[i-1].bot, SKY[i].bot, t)};
+      }
+    }
+    return {top:SKY[SKY.length-1].top, bot:SKY[SKY.length-1].bot};
+  }
+  var INK_DAY = [16,21,28], INK_NIGHT = [232,228,220];
+  var ACC_DAY = [163,93,18], ACC_NIGHT = [217,160,90];
+
+  /* ---------------- canvas ---------------- */
+
+  var stars = [], dpr = 1, cw = 0, ch = 0;
+
+  function makeStars(){
+    stars = [];
+    var n = Math.round(Math.min(540, (cw*ch)/2600));
+    for(var i=0;i<n;i++){
+      stars.push({
+        x: Math.random(),
+        y: Math.random(),
+        r: Math.pow(Math.random(), 2.6) * 1.5 + 0.28,
+        b: 0.28 + Math.random()*0.72,
+        depth: 0.06 + Math.random()*0.42,
+        warm: Math.random() < 0.22
+      });
+    }
+  }
+  function resizeCanvas(){
+    dpr = Math.min(window.devicePixelRatio || 1, 2);
+    cw = window.innerWidth; ch = window.innerHeight;
+    canvas.width = Math.round(cw*dpr);
+    canvas.height = Math.round(ch*dpr);
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+    makeStars();
+  }
+
+  function paint(l, progress){
+    var s = skyAt(l);
+    var g = ctx.createLinearGradient(0,0,0,ch);
+    g.addColorStop(0, rgb(s.top));
+    g.addColorStop(1, rgb(s.bot));
+    ctx.fillStyle = g;
+    ctx.fillRect(0,0,cw,ch);
+
+    // stars fade in with the sky
+    var night = clamp((l - 3.9) / 1.15, 0, 1);
+    if(night > 0.01){
+      var drift = reduced ? 0 : progress;
+      for(var i=0;i<stars.length;i++){
+        var st = stars[i];
+        var y = ((st.y + drift * st.depth * 7) % 1 + 1) % 1;
+        var a = st.b * night;
+        if(a <= 0.02) continue;
+        ctx.beginPath();
+        ctx.fillStyle = st.warm ? "rgba(255,236,208," + a + ")" : "rgba(226,236,255," + a + ")";
+        ctx.arc(st.x * cw, y * ch, st.r, 0, 6.2832);
+        ctx.fill();
+      }
+    }
+
+    // faint galactic wash while crossing the galaxy
+    var band = bell(l, 20.3, 1.9) * 0.5;
+    if(band > 0.01){
+      var bg = ctx.createRadialGradient(cw*0.5, ch*0.46, 0, cw*0.5, ch*0.46, Math.max(cw,ch)*0.72);
+      bg.addColorStop(0, "rgba(178,148,116," + (0.16*band) + ")");
+      bg.addColorStop(0.45, "rgba(96,86,132," + (0.10*band) + ")");
+      bg.addColorStop(1, "rgba(0,0,0,0)");
+      ctx.fillStyle = bg;
+      ctx.fillRect(0,0,cw,ch);
+    }
+    // cmb glow at the very end
+    var end = clamp((l - 25.4) / 1.3, 0, 1);
+    if(end > 0.01){
+      var eg = ctx.createRadialGradient(cw*0.5, ch*0.5, 0, cw*0.5, ch*0.5, Math.max(cw,ch)*0.85);
+      eg.addColorStop(0, "rgba(120,84,150," + (0.13*end) + ")");
+      eg.addColorStop(1, "rgba(0,0,0,0)");
+      ctx.fillStyle = eg;
+      ctx.fillRect(0,0,cw,ch);
+    }
+  }
+  function clamp(v,a,b){ return v<a?a:(v>b?b:v); }
+  function bell(x, mu, w){ var t=(x-mu)/w; return Math.exp(-t*t); }
+
+  /* ---------------- scope ---------------- */
+
+  var RING = 44;   // usable radius inside the scope frame, in px; recomputed on layout
+
+  function updateScope(d){
+    var l = Math.log10(d), shell = SHELLS[SHELLS.length-1];
+    for(var i=0;i<SHELLS.length;i++){
+      if(d <= SHELLS[i].b){ shell = SHELLS[i]; break; }
+    }
+    var t = (l - Math.log10(shell.a)) / (Math.log10(shell.b) - Math.log10(shell.a));
+    t = clamp(t, 0, 1);
+    dotEl.style.transform = "translateX(" + (t * RING).toFixed(1) + "px)";
+    capEl.textContent = shell.label;
+  }
+
+  /* ---------------- scroll loop ---------------- */
+
+  var ticking = false, lastL = null;
+
+  function update(){
+    var y = window.scrollY + window.innerHeight * 0.34;
+    var l = yToLog(y);
+    var d = Math.pow(10, l);
+    var progress = clamp(window.scrollY / Math.max(1, totalH - window.innerHeight), 0, 1);
+
+    rDist.textContent = fmtDist(d);
+    rTime.textContent = fmtTime(d);
+    updateScope(d);
+
+    var night = clamp((l - 3.85) / 1.05, 0, 1);
+    var ink = mix(INK_DAY, INK_NIGHT, night);
+    var acc = mix(ACC_DAY, ACC_NIGHT, night);
+    var r = document.documentElement.style;
+    r.setProperty("--ink", rgb(ink));
+    r.setProperty("--ink-dim", rgb(ink, 0.60));
+    r.setProperty("--ink-faint", rgb(ink, 0.34));
+    r.setProperty("--hair", rgb(ink, night > 0.5 ? 0.20 : 0.16));
+    r.setProperty("--accent", rgb(acc));
+
+    paint(l, progress);
+
+    // active chapter
+    var active = 0;
+    for(var i=0;i<chapterY.length;i++){ if(window.scrollY >= chapterY[i] - 4) active = i; }
+    var btns = navEl.children;
+    for(var j=0;j<btns.length;j++){
+      btns[j].setAttribute("aria-current", j === active ? "true" : "false");
+    }
+
+    lastL = l;
+    ticking = false;
+  }
+
+  function onScroll(){
+    if(!ticking){ ticking = true; requestAnimationFrame(update); }
+  }
+
+  /* ---------------- init ---------------- */
+
+  buildStops();
+  layout();
+
+  if("IntersectionObserver" in window && !reduced){
+    var io = new IntersectionObserver(function(entries){
+      entries.forEach(function(en){
+        if(en.isIntersecting){ en.target.classList.add("seen"); io.unobserve(en.target); }
+      });
+    }, {rootMargin:"-8% 0px -18% 0px"});
+    stopNodes.forEach(function(n){ io.observe(n); });
+  } else {
+    stopNodes.forEach(function(n){ n.classList.add("seen"); });
+  }
+
+  document.getElementById("reset").addEventListener("click", function(){
+    window.scrollTo({top:0, behavior: reduced ? "auto" : "smooth"});
+  });
+
+  window.addEventListener("scroll", onScroll, {passive:true});
+
+  var rt = null;
+  window.addEventListener("resize", function(){
+    clearTimeout(rt);
+    rt = setTimeout(layout, 160);
+  });
+
+  update();
+})();
+</script>
+</body>
+</html>
