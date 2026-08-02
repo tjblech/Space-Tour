@@ -1,0 +1,924 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Measured From Now — a scroll back to the first instant</title>
+<meta name="description" content="A logarithmic scroll backward through time, from one second ago to the Planck time. Every tick is ten times further back than the last.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:opsz,wght@6..96,400;6..96,500&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#10151c;
+    --ink-dim:rgba(16,21,28,.74);
+    --ink-faint:rgba(16,21,28,.46);
+    --hair:rgba(16,21,28,.18);
+    --accent:#a35d12;
+    --glow:none;
+    --display:"Bodoni Moda","Didot","Times New Roman",serif;
+    --body:"IBM Plex Sans",ui-sans-serif,system-ui,sans-serif;
+    --mono:"IBM Plex Mono",ui-monospace,"SF Mono",Menlo,monospace;
+    --rail:78px;
+    --gutter:34px;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    margin:0;background:#8fb8dc;color:var(--ink);
+    font-family:var(--body);font-weight:400;
+    -webkit-font-smoothing:antialiased;overflow-x:hidden;
+  }
+  #sky{position:fixed;inset:0;width:100%;height:100%;z-index:0;display:block}
+  #track{position:relative;z-index:1}
+
+  .hud{
+    position:fixed;top:0;left:0;right:0;z-index:5;
+    display:flex;align-items:flex-start;justify-content:space-between;
+    padding:20px var(--gutter);pointer-events:none;
+  }
+  .readout{font-family:var(--mono);line-height:1.25}
+  .readout .lab{
+    font-size:9.5px;letter-spacing:.20em;text-transform:uppercase;
+    color:var(--ink-faint);display:block;margin-bottom:5px;
+  }
+  .readout .big{font-size:26px;font-weight:500;letter-spacing:-.01em;display:block}
+  .readout .sub{font-size:11px;color:var(--ink-dim);display:block;margin-top:6px}
+
+  .scope{text-align:right;font-family:var(--mono)}
+  .scope-frame{
+    width:112px;height:112px;margin-left:auto;position:relative;
+    display:flex;align-items:center;justify-content:center;
+    border:1px solid var(--hair);border-radius:50%;
+  }
+  .scope-frame::after{content:"";position:absolute;inset:14px;border-radius:50%;border:1px dashed var(--hair)}
+  .scope-dot{background:var(--accent);border-radius:50%;width:5px;height:5px;position:relative;z-index:1}
+  .scope .lab{
+    font-size:9.5px;letter-spacing:.18em;text-transform:uppercase;
+    color:var(--ink-faint);display:block;margin-bottom:8px;
+  }
+  .scope .cap{font-size:10.5px;color:var(--ink-dim);display:block;margin-top:8px}
+
+  .chapters{
+    position:fixed;right:var(--gutter);bottom:26px;z-index:6;
+    display:flex;flex-direction:column;align-items:flex-end;gap:7px;
+    font-family:var(--mono);font-size:11px;letter-spacing:.06em;text-shadow:var(--glow);
+  }
+  .chapters button{
+    background:none;border:0;padding:2px 0 2px 14px;margin:0;cursor:pointer;
+    color:var(--ink-faint);font:inherit;text-align:right;position:relative;
+    transition:color .25s ease;
+  }
+  .chapters button::before{
+    content:"";position:absolute;right:calc(100% + 8px);top:50%;
+    width:10px;height:1px;background:currentColor;opacity:.5;
+  }
+  .chapters button:hover,.chapters button:focus-visible{color:var(--ink)}
+  .chapters button[aria-current="true"]{color:var(--accent)}
+
+  .ruler{position:absolute;top:0;left:var(--rail);width:1px;background:var(--hair)}
+  .tick{position:absolute;left:0;height:1px;background:var(--hair)}
+  .tick.minor{width:5px;opacity:.7}
+  .tick.major{width:15px;background:var(--ink-faint)}
+  .tick-label{
+    position:absolute;left:22px;top:-8px;
+    font-family:var(--mono);font-size:10.5px;letter-spacing:.10em;
+    color:var(--ink-faint);white-space:nowrap;text-shadow:var(--glow);
+  }
+  .tick.flip{width:30px;background:var(--accent);opacity:.9}
+  .tick.flip .tick-label{color:var(--accent);letter-spacing:.16em}
+
+  .stop{
+    position:absolute;left:calc(var(--rail) + 54px);
+    width:min(430px, calc(100vw - var(--rail) - 54px - var(--gutter)));
+    opacity:0;transform:translateY(16px);
+    transition:opacity .7s ease, transform .7s cubic-bezier(.16,.84,.44,1);
+  }
+  .stop.seen{opacity:1;transform:none}
+  .stop,.panel{text-shadow:var(--glow)}
+  .stop .eyebrow{
+    font-family:var(--mono);font-size:10px;letter-spacing:.20em;text-transform:uppercase;
+    color:var(--ink-faint);display:flex;align-items:center;gap:9px;margin-bottom:12px;
+  }
+  .stop .eyebrow::before{content:"";width:7px;height:7px;border-radius:50%;border:1px solid var(--ink-faint);flex:none}
+  .stop.human .eyebrow{color:var(--accent)}
+  .stop.human .eyebrow::before{background:var(--accent);border-color:var(--accent)}
+  .stop.unit .eyebrow::before{border-radius:0;transform:rotate(45deg)}
+  .stop h2{
+    font-family:var(--display);font-weight:400;
+    font-size:clamp(28px,4.4vw,44px);line-height:1.02;letter-spacing:-.015em;margin:0 0 14px;
+  }
+  .stop .dist{
+    font-family:var(--mono);font-size:13.5px;font-weight:500;letter-spacing:.02em;
+    margin:0 0 16px;padding-bottom:16px;border-bottom:1px solid var(--hair);
+  }
+  .stop .dist span{color:var(--ink-dim);font-weight:400}
+  .stop p.note{font-size:16.5px;line-height:1.74;color:var(--ink-dim);margin:0;max-width:40ch}
+  .stop.unit h2{font-style:italic}
+
+  .panel{position:absolute;right:var(--gutter);display:flex;flex-direction:column;justify-content:center}
+  .panel.intro,.panel.outro{left:calc(var(--rail) + 54px)}
+  .intro h1{
+    font-family:var(--display);font-weight:400;
+    font-size:clamp(46px,10.5vw,132px);line-height:.92;letter-spacing:-.03em;
+    margin:0 0 26px;max-width:14ch;
+  }
+  .intro .kicker{
+    font-family:var(--mono);font-size:11px;letter-spacing:.24em;text-transform:uppercase;
+    color:var(--ink-faint);margin:0 0 26px;
+  }
+  .intro p{font-size:17px;line-height:1.66;color:var(--ink-dim);max-width:44ch;margin:0 0 14px}
+  .cue{
+    font-family:var(--mono);font-size:10.5px;letter-spacing:.20em;text-transform:uppercase;
+    color:var(--ink-faint);margin-top:44px;display:flex;align-items:center;gap:12px;
+  }
+  .cue i{display:block;width:34px;height:1px;background:currentColor;animation:slide 2.6s ease-in-out infinite}
+  @keyframes slide{0%,100%{transform:translateX(0);opacity:.35}50%{transform:translateX(9px);opacity:1}}
+  .intro .kicker,.intro h1,.intro p,.intro .cue{animation:rise .9s cubic-bezier(.16,.84,.44,1) backwards}
+  .intro .kicker{animation-delay:.06s}
+  .intro h1{animation-delay:.2s}
+  .intro p:nth-of-type(2){animation-delay:.38s}
+  .intro p:nth-of-type(3){animation-delay:.5s}
+  .intro .cue{animation:rise .9s cubic-bezier(.16,.84,.44,1) .68s backwards}
+  @keyframes rise{from{opacity:0;transform:translateY(15px)}to{opacity:1;transform:none}}
+
+  .outro h2{
+    font-family:var(--display);font-weight:400;font-style:italic;
+    font-size:clamp(30px,5.5vw,58px);line-height:1.04;margin:0 0 22px;max-width:20ch;
+  }
+  .outro p{font-size:16.5px;line-height:1.72;color:var(--ink-dim);max-width:46ch;margin:0 0 14px}
+  .actions{display:flex;flex-wrap:wrap;gap:12px;margin-top:34px}
+  .btn{
+    font-family:var(--mono);font-size:11px;letter-spacing:.16em;text-transform:uppercase;
+    color:var(--ink);background:none;cursor:pointer;text-decoration:none;display:inline-block;
+    border:1px solid var(--hair);border-radius:2px;padding:13px 20px;
+    transition:border-color .25s ease;
+  }
+  .btn:hover,.btn:focus-visible{border-color:var(--ink-dim)}
+  .colophon{
+    font-family:var(--mono);font-size:10.5px;line-height:1.8;letter-spacing:.04em;
+    color:var(--ink-faint);margin-top:52px;max-width:52ch;
+  }
+
+  .crossing{
+    position:fixed;left:0;right:0;top:46%;z-index:7;
+    text-align:center;pointer-events:none;opacity:0;
+    font-family:var(--mono);font-size:11px;font-weight:500;
+    letter-spacing:.34em;text-transform:uppercase;color:var(--accent);text-shadow:var(--glow);
+  }
+  .crossing.show{animation:cross 2.8s ease forwards}
+  @keyframes cross{
+    0%{opacity:0;letter-spacing:.18em}
+    14%{opacity:1;letter-spacing:.34em}
+    62%{opacity:1;letter-spacing:.36em}
+    100%{opacity:0;letter-spacing:.46em}
+  }
+
+  :focus-visible{outline:1px solid var(--accent);outline-offset:3px}
+
+  @media (max-width:760px){
+    :root{--rail:26px;--gutter:20px}
+    .hud{padding:14px var(--gutter)}
+    .readout .big{font-size:20px}
+    .scope-frame{width:74px;height:74px}
+    .scope .cap{font-size:9px}
+    .stop{left:calc(var(--rail) + 26px);width:calc(100vw - var(--rail) - 26px - var(--gutter))}
+    .panel.intro,.panel.outro{left:calc(var(--rail) + 26px)}
+    .tick-label{left:18px;font-size:9px}
+    .chapters{bottom:16px;font-size:9.5px;gap:5px}
+    .stop p.note{font-size:15.5px;line-height:1.7}
+    .crossing{font-size:9px;letter-spacing:.22em}
+  }
+  @media (prefers-reduced-motion:reduce){
+    html{scroll-behavior:auto}
+    .stop{transition:none;opacity:1;transform:none}
+    .cue i{animation:none}
+    .intro .kicker,.intro h1,.intro p,.intro .cue{animation:none}
+    .crossing.show{animation:none;opacity:0}
+  }
+</style>
+</head>
+<body>
+
+<canvas id="sky" aria-hidden="true"></canvas>
+
+<div class="hud">
+  <div class="readout">
+    <span class="lab" id="r-lab">Time before now</span>
+    <span class="big" id="r-time">1 second</span>
+    <span class="sub" id="r-sub">around the year 2026</span>
+  </div>
+  <div class="scope" aria-hidden="true">
+    <span class="lab">You are in</span>
+    <div class="scope-frame"><div class="scope-dot" id="scope-dot"></div></div>
+    <span class="cap" id="scope-cap">recorded history</span>
+  </div>
+</div>
+
+<div class="crossing" id="crossing" aria-hidden="true"></div>
+
+<nav class="chapters" id="chapters" aria-label="Jump to an era"></nav>
+
+<main id="track">
+  <section class="panel intro" id="intro">
+    <p class="kicker">A logarithmic descent</p>
+    <h1>Measured from now</h1>
+    <p>The clock in this room reads the same as it always has. This page counts backward from this second, and every mark on the ruler is ten times further back than the last.</p>
+    <p>Two thirds of the way down, counting backward stops working, because everything left happens inside the first fraction of a second. The ruler starts over and counts forward from zero.</p>
+    <div class="cue"><i></i> Scroll to fall back</div>
+  </section>
+
+  <div class="ruler" id="ruler"></div>
+  <div id="stops"></div>
+
+  <section class="panel outro" id="outro">
+    <h2>You have been here the whole time.</h2>
+    <p>Every instant on this page is upstream of the one you are sitting in. The protons in your hand were assembled a millionth of a second after the beginning, the oxygen you are breathing was waste from a bacterium, and the carbon was made inside a star that had to die first.</p>
+    <p>Nothing about that arrangement was aimed at you. It simply had nowhere else to go.</p>
+    <div class="actions">
+      <button class="btn" id="reset">Return to now</button>
+      <a class="btn" href="index.html">Measure distance instead</a>
+    </div>
+    <p class="colophon">
+      Dates are best current estimates, rounded, and several are actively argued over — the first stone tools, the first stars, and anything before the first microsecond most of all. The switch from counting backward to counting forward happens at the Big Bang; before that point the ruler shows time before now, and after it, time since the beginning. Temperatures in the early universe are from the standard radiation-era relation and are approximate. Every mark on the ruler is still ten times the last, but the page gives different regions different amounts of room per decade: almost everything old is crushed into a handful of decades of ‘ago’, while the first second spans sixty decades with very little in them. Where two stops would still collide, the later one is pushed down far enough to clear the one above it.
+    </p>
+  </section>
+</main>
+
+<script>
+(function(){
+  "use strict";
+
+  var YEAR = 3.15576e7;
+  var NOW_YEAR = new Date().getFullYear();
+  var BB = 13.8e9 * YEAR;              // age of the universe, in seconds
+
+  // ago: seconds before now.  after: seconds after the Big Bang.
+  var STOPS = [
+    {ago:1, kind:"unit", eyebrow:"Zero", name:"One second ago",
+     note:"Your heart has beaten about once. Light has gone around the Earth seven and a half times. Everything on this page is measured backward from this instant."},
+
+    {ago:499, kind:"natural", eyebrow:"Arrivals", name:"The sunlight in this room left the Sun",
+     note:"Eight minutes and nineteen seconds. If the Sun had gone out when you started reading this sentence, nothing here would have changed yet."},
+
+    {ago:3600, kind:"unit", eyebrow:"Arrivals", name:"One hour ago",
+     note:"Light has covered 1.08 billion kilometres since then, which is roughly the distance out to Saturn. An hour is a long way."},
+
+    {ago:86400, kind:"unit", eyebrow:"Arrivals", name:"Yesterday",
+     note:"Light travels about 26 billion kilometres in a day. That is almost exactly where Voyager 1 is now, which is why a command sent yesterday is only arriving there about now."},
+
+    {ago:YEAR, kind:"unit", eyebrow:"Arrivals", name:"One year ago",
+     note:"The Earth has gone all the way around and come back to this spot. Light has covered one light-year, which is where that unit comes from and why it measures length rather than time."},
+
+    {ago:4.24*YEAR, kind:"natural", eyebrow:"Arrivals", name:"Light left Proxima Centauri",
+     note:"The nearest star's light takes this long to arrive. Anything that has happened there since is still on its way and will not be visible for years."},
+
+    {ago:57*YEAR, kind:"human", eyebrow:"1969", name:"Twelve people walk on the Moon",
+     note:"Between 1969 and 1972, and nobody since. The television signal from that broadcast is now 57 light-years out, roughly halfway to the edge of everything we have ever transmitted."},
+
+    {ago:167*YEAR, kind:"human", eyebrow:"1859", name:"The Carrington Event",
+     note:"A solar storm strong enough that telegraph offices caught fire, operators kept sending with the batteries disconnected, and aurorae appeared over the Caribbean. It has not recurred since we built anything that depends on electricity."},
+
+    {ago:416*YEAR, kind:"human", eyebrow:"1610", name:"Galileo looks at Jupiter",
+     note:"Four dots beside the planet that moved from night to night, and did not move the way anything orbiting Earth would. Almost everything further down this page is knowledge we have because someone did that."},
+
+    {ago:972*YEAR, kind:"human", eyebrow:"1054", name:"A new star, visible in daylight",
+     note:"Astronomers in China, Japan and the Arab world all recorded it, bright enough to see by day for twenty-three days. The star had actually exploded 6,500 years earlier. The news simply took that long to arrive, and the wreckage is what we now call the Crab Nebula."},
+
+    {ago:1947*YEAR, kind:"human", eyebrow:"79 AD", name:"Vesuvius buries Pompeii",
+     note:"About eighteen hours from the first ash to the last surge. The ash preserved loaves still sitting in the ovens, and the shape of the empty spaces where people had been."},
+
+    {ago:4586*YEAR, kind:"human", eyebrow:"Deep history", name:"The Great Pyramid is finished",
+     note:"Writing is about six centuries old at this point. Everything humans have ever written down about themselves fits between here and the top of this page."},
+
+    {ago:12000*YEAR, kind:"human", eyebrow:"Prehistory", name:"People begin farming",
+     note:"And then do it again, independently, in at least eleven separate places that were never in contact. Given the same pressure, the same answer keeps getting found."},
+
+    {ago:17000*YEAR, kind:"human", eyebrow:"Prehistory", name:"The paintings at Lascaux",
+     note:"Horses, aurochs, stags and one human figure, drawn by people anatomically identical to you, in a cave they had to crawl into carrying a lamp."},
+
+    {ago:26500*YEAR, kind:"natural", eyebrow:"Ice", name:"The last glacial maximum",
+     note:"Ice a kilometre thick over what is now Boston and Manchester, and a sea 120 metres lower. Britain is part of France and you can walk from Siberia to Alaska."},
+
+    {ago:74000*YEAR, kind:"natural", eyebrow:"Catastrophe", name:"Toba erupts",
+     note:"The largest eruption in two million years, in Sumatra. It put enough sulphur into the stratosphere to cool the entire planet for years afterward."},
+
+    {ago:300000*YEAR, kind:"natural", eyebrow:"Origins", name:"The first Homo sapiens",
+     note:"The oldest fossils we would recognise as us, from Morocco. Everyone alive descends from a population that was, at times, small enough to fit in a stadium."},
+
+    {ago:1e6*YEAR, kind:"unit", eyebrow:"Milestone", name:"One million years",
+     note:"A thousand millennia. All of recorded history is a two-hundredth of this, and this is still less than a hundredth of one percent of the page you are on."},
+
+    {ago:3.3e6*YEAR, kind:"natural", eyebrow:"Origins", name:"The oldest stone tools",
+     note:"Found in Kenya, and made 700,000 years before anything in our own genus existed. Somebody else invented technology first."},
+
+    {ago:6e6*YEAR, kind:"natural", eyebrow:"Origins", name:"The split from chimpanzees",
+     note:"The last ancestor we share with them. Not an ape and not a human: something with no idea that either was coming."},
+
+    {ago:66e6*YEAR, kind:"natural", eyebrow:"Extinction", name:"The asteroid",
+     note:"Ten kilometres wide, into the Yucat\u00e1n at about 20 km/s. Enough debris goes up to stop photosynthesis for years, three quarters of all species die, and every dinosaur that isn't a bird goes with them. Mammals inherit everything above this line."},
+
+    {ago:150e6*YEAR, kind:"natural", eyebrow:"Life", name:"Archaeopteryx",
+     note:"Feathers, wings, and a mouth full of teeth. Birds are dinosaurs, and this is roughly the point where that stops being a controversial thing to say."},
+
+    {ago:230e6*YEAR, kind:"natural", eyebrow:"Life", name:"The first dinosaurs",
+     note:"Small, fast and completely unremarkable at the time. They spend about thirty million years as a minor group before anything about them looks inevitable."},
+
+    {ago:252e6*YEAR, kind:"natural", eyebrow:"Extinction", name:"The Great Dying",
+     note:"Siberian volcanism runs for a million years. The oceans acidify and lose their oxygen, and 96% of marine species vanish. This is the closest complex life has ever come to ending."},
+
+    {ago:385e6*YEAR, kind:"natural", eyebrow:"Life", name:"The first forests",
+     note:"Trees invent wood, and nothing has yet evolved that can digest it, so dead trunks simply accumulate for the next sixty million years. That backlog is most of the world's coal."},
+
+    {ago:541e6*YEAR, kind:"natural", eyebrow:"Life", name:"The Cambrian explosion",
+     note:"In perhaps twenty million years, nearly every body plan animals still use appears at once: eyes, limbs, shells, jaws, and a gut with two ends."},
+
+    {ago:635e6*YEAR, kind:"natural", eyebrow:"Ice", name:"Snowball Earth ends",
+     note:"For tens of millions of years the ice had reached the equator and the entire planet was white. What broke it was volcanic carbon dioxide building up under the ice with nowhere to go."},
+
+    {ago:1.6e9*YEAR, kind:"natural", eyebrow:"Life", name:"One cell swallows another",
+     note:"And fails to digest it. The passenger becomes the mitochondrion. Every plant, animal and fungus alive is descended from that single accident."},
+
+    {ago:2.4e9*YEAR, kind:"natural", eyebrow:"The young Earth", name:"The Great Oxidation",
+     note:"Photosynthesising bacteria fill the air with a corrosive waste gas that kills most of what is living at the time. The waste gas is oxygen, and you are currently using it."},
+
+    {ago:3.5e9*YEAR, kind:"natural", eyebrow:"The young Earth", name:"The oldest fossils",
+     note:"Layered mats of bacteria. Life appears almost as soon as the surface stops being molten, which is either extremely encouraging or a coincidence, and we cannot yet tell which."},
+
+    {ago:4.57e9*YEAR, kind:"natural", eyebrow:"Formation", name:"The Sun ignites",
+     note:"The Earth assembles from the leftovers in about ten million years. Not long after, a Mars-sized object hits it, and the debris thrown off becomes the Moon."},
+
+    {ago:10e9*YEAR, kind:"natural", eyebrow:"Before Earth", name:"Peak star formation",
+     note:"The universe is building stars faster than it ever will again. Most stars that will ever exist are being born around now, and the Sun is a latecomer to a party already winding down."},
+
+    {ago:BB, kind:"unit", sub:"the ruler changes what it measures here",
+     eyebrow:"The turn", name:"As far back as \u2018ago\u2019 goes",
+     note:"The ruler has a problem. Everything remaining happens inside the first fraction of a second, and counting backward from now cannot separate those moments at all. So the page starts over here and counts forward from zero instead."},
+
+    {after:1e9*YEAR, kind:"natural", sub:"redshift 6  \u00b7  everything is 15% as far apart as it is now",
+     eyebrow:"After the beginning", name:"Galaxies",
+     note:"One billion years in. Galaxies have assembled and are colliding constantly, and the universe is about a fifth of its present size, so everything is closer together and the sky is crowded."},
+
+    {after:290e6*YEAR, kind:"human", sub:"redshift 14.2  \u00b7  everything is 7% as far apart as it is now",
+     eyebrow:"After the beginning", name:"JADES-GS-z14-0 shines",
+     note:"The most distant galaxy confirmed, caught by Webb in 2024. It is far larger and brighter than anything is supposed to be this early, which is a problem nobody has finished solving."},
+
+    {after:180e6*YEAR, kind:"natural", sub:"redshift 20  \u00b7  everything is 5% as far apart as it is now",
+     eyebrow:"After the beginning", name:"The first stars ignite",
+     note:"The cosmic dark ages end. These stars are hydrogen and helium and nothing else, hundreds of times the mass of the Sun, and they burn out within a few million years. Every atom in you heavier than helium was made inside one of their descendants."},
+
+    {after:380000*YEAR, kind:"unit", sub:"3,000 K  \u00b7  redshift 1,100",
+     eyebrow:"After the beginning", name:"The universe becomes transparent",
+     note:"It cools to about 3,000 K, nuclei capture electrons, and light stops being scattered by free charge. The glow released at this instant is still arriving from every direction. It is the cosmic microwave background, and it is the oldest thing anyone can see."},
+
+    {after:1200, kind:"natural", eyebrow:"The first hour", name:"The elements are finished",
+     note:"Twenty minutes in. The universe has made its hydrogen, helium and a trace of lithium, and will not make a single new element for another 180 million years, because there is nothing hot and dense enough left to do it."},
+
+    {after:180, kind:"natural", eyebrow:"The first minutes", name:"Helium forms",
+     note:"Protons and neutrons finally stick together. The ratio between them was fixed in the first second, and it locks in a universe that is 75% hydrogen and 25% helium by mass. It still is."},
+
+    {after:1, kind:"natural", eyebrow:"The first second", name:"The neutrinos leave",
+     note:"They stop interacting with anything and fly free. They are still flying. Roughly 300 neutrinos released at this exact moment are inside every cubic centimetre of the room you are in, passing through you and through the Earth without touching either."},
+
+    {after:1e-6, kind:"natural", eyebrow:"The first second", name:"Protons form",
+     note:"Quarks bind into protons and neutrons for the first time, and none of them will ever come apart again. Every proton in your body dates from this instant."},
+
+    {after:1e-12, kind:"human", eyebrow:"The first second", name:"Particles acquire mass",
+     note:"The electroweak force splits in two and the Higgs field switches on. This is the earliest moment we can physically reproduce \u2014 the LHC reaches these energies, which is the only reason we were able to find the Higgs at all."},
+
+    {after:1e-32, kind:"natural", eyebrow:"Inflation", name:"Inflation ends",
+     note:"While it ran, the universe grew by a factor of at least 10\u00b2\u2076 \u2014 a proton becoming the size of a galaxy. That is why the sky is the same temperature in every direction: it was all in contact before this."},
+
+    {after:1e-36, kind:"natural", eyebrow:"Inflation", name:"Inflation begins",
+     note:"Driven by something we have no direct evidence for and no working replacement for either. Everything you have scrolled past is the aftermath of whatever happened here."},
+
+    {after:5.39e-44, kind:"unit", eyebrow:"The end of the ruler", name:"The Planck time",
+     note:"Below this our physics has nothing to say. Gravity and quantum mechanics both matter at once and they do not fit together, so the ruler stops here \u2014 not because the universe did, but because we do."}
+  ];
+
+  var ERAS = [
+    {a:1,            b:5000*YEAR,     label:"recorded history"},
+    {a:5000*YEAR,    b:2.6e6*YEAR,    label:"human prehistory"},
+    {a:2.6e6*YEAR,   b:66e6*YEAR,     label:"the age of mammals"},
+    {a:66e6*YEAR,    b:252e6*YEAR,    label:"the age of dinosaurs"},
+    {a:252e6*YEAR,   b:541e6*YEAR,    label:"early animals"},
+    {a:541e6*YEAR,   b:2.4e9*YEAR,    label:"the microbial world"},
+    {a:2.4e9*YEAR,   b:4.57e9*YEAR,   label:"the young Earth"},
+    {a:4.57e9*YEAR,  b:BB,            label:"before the Earth"},
+    {a:BB,           b:1e12,          label:"the first light",  after:1},
+    {a:1e12,         b:1,             label:"the hot universe", after:1},
+    {a:1,            b:5.39e-44,      label:"the first second", after:1}
+  ];
+
+  var CHAPTERS = [
+    {u:null, at:{ago:1},              label:"Now"},
+    {u:null, at:{ago:972*YEAR},       label:"History"},
+    {u:null, at:{ago:300000*YEAR},    label:"Prehistory"},
+    {u:null, at:{ago:66e6*YEAR},      label:"Deep time"},
+    {u:null, at:{ago:4.57e9*YEAR},    label:"Before Earth"},
+    {u:null, at:{after:380000*YEAR},  label:"The beginning"},
+    {u:null, at:{after:1e-12},        label:"The first second"}
+  ];
+
+  var track   = document.getElementById("track");
+  var ruler   = document.getElementById("ruler");
+  var stopsEl = document.getElementById("stops");
+  var intro   = document.getElementById("intro");
+  var outro   = document.getElementById("outro");
+  var navEl   = document.getElementById("chapters");
+  var canvas  = document.getElementById("sky");
+  var ctx     = canvas.getContext("2d");
+  var rTime   = document.getElementById("r-time");
+  var rSub    = document.getElementById("r-sub");
+  var rLab    = document.getElementById("r-lab");
+  var dotEl   = document.getElementById("scope-dot");
+  var capEl   = document.getElementById("scope-cap");
+  var crossEl = document.getElementById("crossing");
+
+  var reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  /* ---------------- the two-phase scale ---------------- */
+
+  var U_FLIP = Math.log10(BB) + 0.08;      // where "ago" hands over to "after"
+  var LOG_A0 = Math.log10(1e9*YEAR);       // the first stop measured forward
+
+  function uOf(s){
+    if(s.ago !== undefined) return Math.log10(s.ago);
+    return U_FLIP + (LOG_A0 - Math.log10(s.after));
+  }
+  function timeAtU(u){
+    if(u <= U_FLIP) return {ago: Math.pow(10, u)};
+    return {after: Math.pow(10, LOG_A0 - (u - U_FLIP))};
+  }
+
+  /* ---------------- formatting ---------------- */
+
+  var SUP = {"-":"\u207b","0":"\u2070","1":"\u00b9","2":"\u00b2","3":"\u00b3","4":"\u2074",
+             "5":"\u2075","6":"\u2076","7":"\u2077","8":"\u2078","9":"\u2079"};
+  function sup(n){
+    return String(n).split("").map(function(c){ return SUP[c] || c; }).join("");
+  }
+  function group(n,dp){ return n.toLocaleString("en-US",{minimumFractionDigits:dp,maximumFractionDigits:dp}); }
+  function trim(s){ return s.indexOf(".")<0 ? s : s.replace(/0+$/,"").replace(/\.$/,""); }
+  function sig(n){
+    if(n>=1000) return group(Math.round(n),0);
+    if(n>=100)  return group(n,0);
+    if(n>=10)   return trim(group(n,1));
+    return trim(group(n,2));
+  }
+  function one(num,word){ return num + " " + (num==="1" ? word : word + "s"); }
+  function big(n,word){
+    if(n>=1e9) return sig(n/1e9) + " billion " + word + "s";
+    if(n>=1e6) return sig(n/1e6) + " million " + word + "s";
+    if(n>=1e3) return group(Math.round(n),0) + " " + word + "s";
+    return one(sig(n),word);
+  }
+
+  var PREFIX = [[1,"second"],[1e-3,"millisecond"],[1e-6,"microsecond"],[1e-9,"nanosecond"],
+                [1e-12,"picosecond"],[1e-15,"femtosecond"],[1e-18,"attosecond"],
+                [1e-21,"zeptosecond"],[1e-24,"yoctosecond"],[1e-27,"rontosecond"],
+                [1e-30,"quectosecond"]];
+
+  function fmtTime(t){
+    if(t >= 1){
+      if(t < 90)     return one(sig(t),"second");
+      if(t < 3600)   return one(sig(t/60),"minute");
+      if(t < 86400)  return one(sig(t/3600),"hour");
+      if(t < YEAR)   return one(sig(t/86400),"day");
+      return big(t/YEAR,"year");
+    }
+    for(var i=0;i<PREFIX.length;i++){
+      if(t >= PREFIX[i][0]*0.999){
+        return one(sig(t/PREFIX[i][0]), PREFIX[i][1]);
+      }
+    }
+    return "10" + sup(Math.round(Math.log10(t))) + " seconds";
+  }
+
+  var HISTORY = 5200*YEAR, EARTH = 4.54e9*YEAR;
+
+  function agoSub(t){
+    if(t/YEAR < 6000) return calendarYear(t);
+    if(t < 3e6*YEAR)  return sig(t/HISTORY) + "\u00d7 all of recorded history";
+    if(t < 1e9*YEAR)  return "the Earth is " + sig(EARTH/t) + "\u00d7 older than this";
+    return "the universe was " + sig(100*(1 - t/BB)) + "% of its present age";
+  }
+  function afterSub(t){
+    if(t >= 1e13) return "the universe is " + sig(100*t/BB) + "% of its present age";
+    return "everything is at " + tempAt(t);
+  }
+
+  function calendarYear(agoSeconds){
+    var y = Math.round(NOW_YEAR - agoSeconds/YEAR);
+    return y > 0 ? "around the year " + y : group(Math.abs(y)+1,0) + " BC";
+  }
+  // radiation-era temperature, good to an order of magnitude across the whole range
+  function tempAt(afterSeconds){
+    var K = 1.5e10 / Math.sqrt(afterSeconds);
+    if(K >= 1e6) return "10" + sup(Math.round(Math.log10(K))) + " K";
+    return group(Math.round(K/100)*100,0) + " K";
+  }
+
+  /* ---------------- layout ---------------- */
+
+  var stopNodes = [], ACTIVE = [], io = null;
+  var US = [], YS = [], introH = 0, totalH = 0, LIFT = 38;
+  // px per decade. Deep time is crowded into very few decades of "ago", so it gets
+  // more room; the first second spans sixty decades with little in them, so it gets less.
+  var U_MID = 13.5, Ra = 700, Rb = 2100, Rc = 150;
+
+  function yOfU(u){
+    if(u <= U_MID)  return introH + u*Ra;
+    if(u <= U_FLIP) return introH + U_MID*Ra + (u - U_MID)*Rb;
+    return introH + U_MID*Ra + (U_FLIP - U_MID)*Rb + (u - U_FLIP)*Rc;
+  }
+
+  function buildStops(){
+    ACTIVE = STOPS.slice();
+    stopsEl.innerHTML = "";
+    stopNodes = [];
+    var frag = document.createDocumentFragment();
+    ACTIVE.forEach(function(s){
+      var el = document.createElement("article");
+      el.className = "stop " + s.kind;
+      var head, sub;
+      if(s.ago !== undefined){
+        head = fmtTime(s.ago) + " ago";
+        sub  = s.sub || agoSub(s.ago);
+      } else {
+        head = fmtTime(s.after) + " after the beginning";
+        sub  = s.sub || afterSub(s.after);
+      }
+      el.innerHTML =
+        '<p class="eyebrow">' + s.eyebrow + '</p>' +
+        '<h2>' + s.name + '</h2>' +
+        '<p class="dist">' + head + '<span>  \u00b7  ' + sub + '</span></p>' +
+        '<p class="note">' + s.note + '</p>';
+      stopNodes.push(el);
+      frag.appendChild(el);
+    });
+    stopsEl.appendChild(frag);
+    observeStops();
+  }
+
+  function observeStops(){
+    if(io){ io.disconnect(); io = null; }
+    if(!("IntersectionObserver" in window) || reduced){
+      stopNodes.forEach(function(n){ n.classList.add("seen"); });
+      return;
+    }
+    io = new IntersectionObserver(function(entries){
+      entries.forEach(function(en){
+        if(en.isIntersecting){ en.target.classList.add("seen"); io.unobserve(en.target); }
+      });
+    }, {rootMargin:"-6% 0px -16% 0px"});
+    stopNodes.forEach(function(n){ io.observe(n); });
+  }
+
+  function layout(){
+    var W = window.innerWidth, H = window.innerHeight;
+    var narrow = W < 760;
+    Ra = narrow ? 620 : 700;
+    Rb = narrow ? 1900 : 2100;
+    Rc = narrow ? 140 : 150;
+    var pad = narrow ? 58 : 54;
+
+    introH = H;
+
+    var heights = [], i;
+    for(i=0;i<stopNodes.length;i++) heights.push(stopNodes[i].offsetHeight);
+
+    US = []; YS = [];
+    var prev = -Infinity, need = 0;
+    for(i=0;i<ACTIVE.length;i++){
+      var u = uOf(ACTIVE[i]);
+      var y = Math.max(yOfU(u), prev + need);
+      if(i === 0) y = introH + Math.round(H*0.18);
+      US.push(u); YS.push(y);
+      prev = y;
+      need = heights[i] + pad;
+    }
+
+    var lastBottom = YS[YS.length-1] - LIFT + heights[heights.length-1];
+
+    track.style.height = "auto";
+    intro.style.top = "0px";
+    intro.style.height = introH + "px";
+    outro.style.top = Math.round(lastBottom + H*0.34) + "px";
+    ruler.style.height = Math.round(lastBottom + 40) + "px";
+
+    for(i=0;i<stopNodes.length;i++) stopNodes[i].style.top = Math.round(YS[i] - LIFT) + "px";
+
+    buildRuler();
+    buildChapters();
+
+    totalH = Math.round(lastBottom + H*0.34) + outro.offsetHeight + Math.round(H*0.22);
+    track.style.height = totalH + "px";
+
+    var frame = document.querySelector(".scope-frame");
+    RING = Math.max(18, (frame ? frame.clientWidth : 112)/2 - 12);
+
+    resizeCanvas();
+    update();
+  }
+
+  // piecewise-linear map through the placed stops, so the ruler and the cards always agree
+  function uToY(u){
+    if(u <= US[0]) return YS[0];
+    if(u >= US[US.length-1]) return YS[YS.length-1];
+    for(var i=1;i<US.length;i++){
+      if(u <= US[i]){
+        var t = (u - US[i-1])/(US[i] - US[i-1]);
+        return YS[i-1] + t*(YS[i] - YS[i-1]);
+      }
+    }
+    return YS[YS.length-1];
+  }
+  function yToU(y){
+    if(y <= YS[0]) return US[0];
+    if(y >= YS[YS.length-1]) return US[US.length-1];
+    for(var i=1;i<YS.length;i++){
+      if(y <= YS[i]){
+        var t = (y - YS[i-1])/(YS[i] - YS[i-1]);
+        return US[i-1] + t*(US[i] - US[i-1]);
+      }
+    }
+    return US[US.length-1];
+  }
+
+  function buildRuler(){
+    ruler.innerHTML = "";
+    var frag = document.createDocumentFragment(), e, u, t;
+
+    // phase one: powers of ten of "time before now"
+    for(e = 0; e <= Math.floor(Math.log10(BB)); e++){
+      addTick(frag, e, fmtTime(Math.pow(10,e)) + " ago", false);
+    }
+    // the turn
+    addTick(frag, U_FLIP, "the beginning", true);
+    // phase two: powers of ten of "time since the beginning", counting down
+    for(e = Math.floor(LOG_A0); e >= -44; e--){
+      t = Math.pow(10, e);
+      u = U_FLIP + (LOG_A0 - e);
+      if(u > US[US.length-1] + 1) break;
+      addTick(frag, u, fmtTime(t) + " after", false);
+    }
+    ruler.appendChild(frag);
+
+    function addTick(frag, u, label, flip){
+      var y = uToY(u);
+      var d = document.createElement("div");
+      d.className = "tick major" + (flip ? " flip" : "");
+      d.style.top = Math.round(y) + "px";
+      d.innerHTML = '<span class="tick-label">' + label + '</span>';
+      frag.appendChild(d);
+    }
+  }
+
+  var chapterY = [];
+  function buildChapters(){
+    navEl.innerHTML = "";
+    chapterY = [];
+    CHAPTERS.forEach(function(c){
+      var y = uToY(uOf(c.at)) - window.innerHeight*0.34;
+      chapterY.push(y);
+      var b = document.createElement("button");
+      b.type = "button";
+      b.textContent = c.label;
+      b.addEventListener("click", function(){
+        window.scrollTo({top: Math.max(0,y), behavior: reduced ? "auto" : "smooth"});
+      });
+      navEl.appendChild(b);
+    });
+  }
+
+  /* ---------------- colour ---------------- */
+
+  function mix(a,b,t){ return [a[0]+(b[0]-a[0])*t, a[1]+(b[1]-a[1])*t, a[2]+(b[2]-a[2])*t]; }
+  function rgb(c,a){ return "rgba("+Math.round(c[0])+","+Math.round(c[1])+","+Math.round(c[2])+","+(a===undefined?1:a)+")"; }
+  function clamp(v,a,b){ return v<a?a:(v>b?b:v); }
+
+  // day -> night -> ember -> fire -> white
+  var SKY = [
+    {u:0,    top:[122,166,206], bot:[190,214,232]},
+    {u:4.4,  top:[ 62,100,152], bot:[ 96,134,176]},
+    {u:6.6,  top:[ 22, 40, 78], bot:[ 36, 58,100]},
+    {u:9.5,  top:[  8, 12, 28], bot:[ 12, 17, 36]},
+    {u:14.5, top:[  5,  7, 18], bot:[  8, 10, 22]},
+    {u:16.6, top:[ 16,  8, 20], bot:[ 20, 10, 22]},
+    {u:17.9, top:[ 44, 12, 16], bot:[ 30,  9, 14]},
+    {u:22,   top:[ 96, 24, 14], bot:[ 66, 16, 12]},
+    {u:32,   top:[168, 58, 16], bot:[126, 36, 13]},
+    {u:46,   top:[226,120, 34], bot:[196, 82, 22]},
+    {u:60,   top:[248,198,120], bot:[238,150, 62]},
+    {u:78,   top:[255,250,240], bot:[253,228,188]}
+  ];
+  function skyAt(u){
+    if(u <= SKY[0].u) return SKY[0];
+    for(var i=1;i<SKY.length;i++){
+      if(u <= SKY[i].u){
+        var t = (u - SKY[i-1].u)/(SKY[i].u - SKY[i-1].u);
+        return {top:mix(SKY[i-1].top,SKY[i].top,t), bot:mix(SKY[i-1].bot,SKY[i].bot,t)};
+      }
+    }
+    return SKY[SKY.length-1];
+  }
+  var INK = [ {u:0,c:[16,21,28]}, {u:5.6,c:[232,228,220]}, {u:44,c:[240,236,228]},
+              {u:58,c:[62,24,10]}, {u:78,c:[38,13,5]} ];
+  var ACC = [ {u:0,c:[163,93,18]}, {u:5.6,c:[217,160,90]}, {u:44,c:[255,226,182]},
+              {u:58,c:[122,32,8]}, {u:78,c:[146,46,12]} ];
+  function ramp(list,u){
+    if(u <= list[0].u) return list[0].c;
+    for(var i=1;i<list.length;i++){
+      if(u <= list[i].u){
+        var t=(u-list[i-1].u)/(list[i].u-list[i-1].u);
+        return mix(list[i-1].c,list[i].c,t);
+      }
+    }
+    return list[list.length-1].c;
+  }
+
+  /* ---------------- canvas ---------------- */
+
+  var stars = [], dpr=1, cw=0, ch=0, RING=44;
+
+  function makeStars(){
+    stars = [];
+    var n = Math.round(Math.min(520,(cw*ch)/2700));
+    for(var i=0;i<n;i++){
+      stars.push({x:Math.random(), y:Math.random(),
+                  r:Math.pow(Math.random(),2.6)*1.5+0.28,
+                  b:0.28+Math.random()*0.72,
+                  depth:0.06+Math.random()*0.42,
+                  warm:Math.random()<0.22});
+    }
+  }
+  function resizeCanvas(){
+    dpr = Math.min(window.devicePixelRatio||1, 2);
+    cw = window.innerWidth; ch = window.innerHeight;
+    canvas.width = Math.round(cw*dpr); canvas.height = Math.round(ch*dpr);
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+    makeStars();
+  }
+
+  function paint(u, progress){
+    var s = skyAt(u);
+    var g = ctx.createLinearGradient(0,0,0,ch);
+    g.addColorStop(0, rgb(s.top)); g.addColorStop(1, rgb(s.bot));
+    ctx.fillStyle = g; ctx.fillRect(0,0,cw,ch);
+
+    // stars exist only between the first stars and now, and literally empty out as you pass them
+    var lit = clamp((u-4.4)/2.2, 0, 1) * (1 - clamp((u-18.2)/1.1, 0, 1));
+    if(lit > 0.01){
+      var drift = reduced ? 0 : progress;
+      for(var i=0;i<stars.length;i++){
+        var st = stars[i];
+        var y = ((st.y + drift*st.depth*7)%1+1)%1;
+        var a = st.b*lit;
+        if(a <= 0.02) continue;
+        ctx.beginPath();
+        ctx.fillStyle = st.warm ? "rgba(255,236,208,"+a+")" : "rgba(226,236,255,"+a+")";
+        ctx.arc(st.x*cw, y*ch, st.r, 0, 6.2832);
+        ctx.fill();
+      }
+    }
+
+    paintFire(u);
+    paintScrim(u);
+  }
+
+  // the universe getting hot: a glow that rises out of the bottom and swallows the page
+  function paintFire(u){
+    var f = clamp((u - 16.8)/9, 0, 1);
+    if(f <= 0.01) return;
+    var rad = Math.max(cw,ch) * (0.35 + f*1.5);
+    var cy  = ch * (1.12 - f*0.62);
+    var g = ctx.createRadialGradient(cw*0.5, cy, 0, cw*0.5, cy, rad);
+    g.addColorStop(0,    "rgba(255,214,150," + (0.55*f) + ")");
+    g.addColorStop(0.35, "rgba(238,124, 40," + (0.34*f) + ")");
+    g.addColorStop(0.72, "rgba(150, 34, 14," + (0.18*f) + ")");
+    g.addColorStop(1,    "rgba(0,0,0,0)");
+    ctx.fillStyle = g;
+    ctx.fillRect(0,0,cw,ch);
+  }
+
+  function paintScrim(u){
+    // dark scrim while the sky is dark; light scrim once the sky is on fire
+    var night = clamp((u-4.4)/2.2,0,1) * (1 - clamp((u-44)/12,0,1));
+    var bright = clamp((u-44)/12,0,1);
+    var g = ctx.createLinearGradient(0,0,Math.min(cw*0.86,780),0);
+    if(night > 0.04){
+      g.addColorStop(0,   "rgba(2,4,10,"+(0.56*night)+")");
+      g.addColorStop(0.5, "rgba(2,4,10,"+(0.32*night)+")");
+      g.addColorStop(1,   "rgba(2,4,10,0)");
+      ctx.fillStyle = g; ctx.fillRect(0,0,cw,ch);
+    }
+    if(bright > 0.04){
+      var g2 = ctx.createLinearGradient(0,0,Math.min(cw*0.86,780),0);
+      g2.addColorStop(0,   "rgba(255,246,232,"+(0.5*bright)+")");
+      g2.addColorStop(0.5, "rgba(255,246,232,"+(0.28*bright)+")");
+      g2.addColorStop(1,   "rgba(255,246,232,0)");
+      ctx.fillStyle = g2; ctx.fillRect(0,0,cw,ch);
+    }
+  }
+
+  /* ---------------- era dial ---------------- */
+
+  function eraIndex(u){
+    var t = timeAtU(u);
+    for(var i=0;i<ERAS.length;i++){
+      var e = ERAS[i];
+      if(e.after){
+        if(t.after !== undefined && t.after <= e.a && t.after >= e.b) return i;
+      } else {
+        if(t.ago !== undefined && t.ago >= e.a && t.ago <= e.b) return i;
+      }
+    }
+    return t.after !== undefined ? ERAS.length-1 : 0;
+  }
+  function updateEra(u){
+    var i = eraIndex(u), e = ERAS[i];
+    var t = timeAtU(u);
+    var v = e.after ? Math.log10(t.after) : Math.log10(t.ago);
+    var lo = Math.log10(e.a), hi = Math.log10(e.b);
+    var frac = clamp((v - lo)/(hi - lo), 0, 1);
+    dotEl.style.transform = "translateX(" + (frac*RING).toFixed(1) + "px)";
+    capEl.textContent = e.label;
+    return i;
+  }
+
+  var lastEra = null;
+  function announce(i){
+    if(lastEra !== null && i > lastEra && !reduced){
+      crossEl.textContent = "Leaving " + ERAS[lastEra].label;
+      crossEl.classList.remove("show");
+      void crossEl.offsetWidth;
+      crossEl.classList.add("show");
+    }
+    lastEra = i;
+  }
+
+  /* ---------------- scroll ---------------- */
+
+  var ticking = false;
+
+  function update(){
+    var y = window.scrollY + window.innerHeight*0.34;
+    var u = yToU(y);
+    var t = timeAtU(u);
+    var progress = clamp(window.scrollY/Math.max(1,totalH-window.innerHeight),0,1);
+
+    if(t.ago !== undefined){
+      rLab.textContent  = "Time before now";
+      rTime.textContent = fmtTime(t.ago);
+      rSub.textContent  = agoSub(t.ago);
+    } else {
+      rLab.textContent  = "Time since the beginning";
+      rTime.textContent = fmtTime(t.after);
+      rSub.textContent  = afterSub(t.after);
+    }
+
+    announce(updateEra(u));
+
+    var ink = ramp(INK,u), acc = ramp(ACC,u);
+    var dark = clamp((u-4.4)/2.2,0,1) * (1 - clamp((u-46)/10,0,1));
+    var r = document.documentElement.style;
+    r.setProperty("--ink", rgb(ink));
+    r.setProperty("--ink-dim", rgb(ink,0.74));
+    r.setProperty("--ink-faint", rgb(ink,0.46));
+    r.setProperty("--hair", rgb(ink,0.2));
+    r.setProperty("--accent", rgb(acc));
+    r.setProperty("--glow", dark > 0.3
+      ? "0 1px 28px rgba(2,4,10,.94), 0 0 7px rgba(2,4,10,.8)"
+      : (u > 50 ? "0 1px 22px rgba(255,244,226,.8)" : "none"));
+
+    paint(u, progress);
+
+    var active = 0;
+    for(var i=0;i<chapterY.length;i++){ if(window.scrollY >= chapterY[i]-4) active = i; }
+    for(var j=0;j<navEl.children.length;j++){
+      navEl.children[j].setAttribute("aria-current", j===active ? "true" : "false");
+    }
+    ticking = false;
+  }
+  function onScroll(){ if(!ticking){ ticking = true; requestAnimationFrame(update); } }
+
+  /* ---------------- init ---------------- */
+
+  buildStops();
+  layout();
+
+  document.getElementById("reset").addEventListener("click", function(){
+    window.scrollTo({top:0, behavior: reduced ? "auto" : "smooth"});
+  });
+  window.addEventListener("scroll", onScroll, {passive:true});
+  var rt = null;
+  window.addEventListener("resize", function(){
+    clearTimeout(rt);
+    rt = setTimeout(layout, 160);
+  });
+  update();
+})();
+</script>
+</body>
+</html>

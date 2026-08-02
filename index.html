@@ -175,8 +175,9 @@
     font-size:clamp(30px,5.5vw,58px);line-height:1.04;margin:0 0 22px;max-width:20ch;
   }
   .outro p{font-size:16.5px;line-height:1.72;color:var(--ink-dim);max-width:46ch;margin:0 0 14px}
+  .actions{display:flex;flex-wrap:wrap;gap:12px;margin-top:34px}
   .reset{
-    margin-top:34px;align-self:flex-start;
+    text-decoration:none;display:inline-block;
     font-family:var(--mono);font-size:11px;letter-spacing:.16em;text-transform:uppercase;
     color:var(--ink);background:none;cursor:pointer;
     border:1px solid var(--hair);border-radius:2px;padding:13px 20px;
@@ -203,6 +204,60 @@
     100%{opacity:0;letter-spacing:.46em}
   }
 
+  /* the birth-year light shell */
+  .birth{
+    display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:34px;
+    font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;
+    color:var(--ink-faint);
+  }
+  .birth input{
+    width:82px;padding:9px 10px;background:none;color:var(--ink);
+    border:1px solid var(--hair);border-radius:2px;
+    font-family:var(--mono);font-size:12px;letter-spacing:.1em;
+    -moz-appearance:textfield;
+  }
+  .birth input::-webkit-outer-spin-button,.birth input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+  .birth input::placeholder{color:var(--ink-faint)}
+  .birth button{
+    font:inherit;color:var(--ink);background:none;cursor:pointer;
+    border:1px solid var(--hair);border-radius:2px;padding:9px 14px;
+    transition:border-color .25s ease;
+  }
+  .birth button:hover,.birth button:focus-visible{border-color:var(--ink-dim)}
+
+  .mark{
+    position:absolute;left:var(--rail);right:var(--gutter);height:1px;
+    background:var(--accent);opacity:.72;display:none;
+  }
+  .mark.on{display:block}
+  .mark::before{
+    content:"";position:absolute;left:-4px;top:-3.5px;
+    width:8px;height:8px;border-radius:50%;background:var(--accent);
+  }
+  .mark-label{
+    position:absolute;right:0;bottom:12px;text-align:right;
+    font-family:var(--mono);font-size:11px;letter-spacing:.06em;
+    color:var(--accent);text-shadow:var(--glow);white-space:nowrap;
+  }
+  .mark-label b{display:block;font-weight:500;margin-bottom:4px}
+  .mark-label i{display:block;font-style:normal;color:var(--ink-dim);font-size:10.5px}
+
+  /* riding a photon */
+  .ride{
+    position:fixed;left:var(--gutter);bottom:26px;z-index:6;
+    display:flex;align-items:center;gap:12px;
+    font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;
+    text-shadow:var(--glow);
+  }
+  .ride button{
+    font:inherit;color:var(--ink-faint);background:none;cursor:pointer;
+    border:1px solid var(--hair);border-radius:2px;padding:9px 14px;
+    transition:color .25s ease,border-color .25s ease;
+  }
+  .ride button:hover,.ride button:focus-visible{color:var(--ink);border-color:var(--ink-dim)}
+  .ride button.on{color:var(--accent);border-color:var(--accent)}
+  .ride .clock{color:var(--ink-dim);letter-spacing:.08em;text-transform:none;min-width:96px}
+
   :focus-visible{outline:1px solid var(--accent);outline-offset:3px}
 
   @media (max-width:760px){
@@ -215,6 +270,10 @@
     .panel.intro,.panel.outro{left:calc(var(--rail) + 26px)}
     .tick-label{left:18px;font-size:9px}
     .chapters{bottom:16px;font-size:9.5px;gap:5px}
+    .ride{bottom:16px;font-size:9.5px;gap:8px}
+    .ride button{padding:7px 10px}
+    .ride .clock{min-width:0}
+    .mark-label{font-size:9.5px;bottom:9px}
     .stop p.note{font-size:15.5px;line-height:1.7}
     .crossing{font-size:9px;letter-spacing:.22em}
   }
@@ -248,23 +307,38 @@
 
 <nav class="chapters" id="chapters" aria-label="Jump to a scale"></nav>
 
+<div class="ride">
+  <button type="button" id="ride-btn">Ride a photon</button>
+  <span class="clock" id="ride-clock"></span>
+</div>
+
 <main id="track">
   <section class="panel intro" id="intro">
     <p class="kicker">A logarithmic climb</p>
     <h1>Measured from here</h1>
     <p>You are standing still. Everything on this page is measured outward from your eyes, and the scale is logarithmic: every mark on the ruler is ten times the one before it.</p>
     <p>That is the only way a single page can hold both a staircase and the observable universe. It also means the last quarter of your scroll covers more ground than everything before it combined.</p>
+    <div class="birth">
+      <label for="birth-year">Born in</label>
+      <input id="birth-year" type="number" inputmode="numeric" placeholder="2005" min="1"
+             aria-label="Year you were born">
+      <button type="button" id="birth-go">Mark it</button>
+    </div>
     <div class="cue"><i></i> Scroll to leave</div>
   </section>
 
   <div class="ruler" id="ruler"></div>
   <div id="stops"></div>
+  <div class="mark" id="birth-mark"><span class="mark-label" id="birth-label"></span></div>
 
   <section class="panel outro" id="outro">
     <h2>Everything you just passed is still there, all at once.</h2>
     <p>The light from the last stop has been travelling for nearly the whole history of the universe. The light from the first stop reached you before you finished reading this word.</p>
     <p>Both are happening now, from where you are standing.</p>
-    <button class="reset" id="reset">Return to eye level</button>
+    <div class="actions">
+      <button class="reset" id="reset">Return to eye level</button>
+      <a class="reset" href="time.html">Measure time instead</a>
+    </div>
     <p class="colophon">
       Distances are best current estimates and are rounded. Beyond a few billion light-years, space itself has expanded while light was in transit, so present-day distance and light-travel time stop agreeing; the last two stops explain the split. The last few stops mix two different measures — how far the light travelled, and how far away the object sits today — which is the subject of the light-travel horizon. Voyager 1's position is extrapolated from its published trajectory and drifts slightly from the official figure. Stops sit at their true logarithmic positions except where two would collide, in which case the later one is pushed down far enough to clear the one above it.
     </p>
@@ -506,6 +580,10 @@
   var dotEl   = document.getElementById("scope-dot");
   var capEl   = document.getElementById("scope-cap");
   var crossEl = document.getElementById("crossing");
+  var markEl  = document.getElementById("birth-mark");
+  var markLab = document.getElementById("birth-label");
+  var rideBtn = document.getElementById("ride-btn");
+  var rideClk = document.getElementById("ride-clock");
 
   var reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
@@ -530,8 +608,8 @@
     return num + " " + (num === "1" ? word.replace(/s$/,"") : word);
   }
   function bigWords(n, unit){
-    if(n >= 1e9) return unitize(sig(n/1e9), "billion " + unit);
-    if(n >= 1e6) return unitize(sig(n/1e6), "million " + unit);
+    if(n >= 1e9) return sig(n/1e9) + " billion " + unit;
+    if(n >= 1e6) return sig(n/1e6) + " million " + unit;
     if(n >= 1e3) return unitize(group(Math.round(n), 0), unit);
     return unitize(sig(n), unit);
   }
@@ -549,8 +627,8 @@
     if(s < 1e-3)  return sig(s*1e6) + " \u00b5s";
     if(s < 1)     return sig(s*1e3) + " ms";
     if(s < 90)    return sig(s) + " s";
-    if(s < 5400)  return sig(s/60) + " min";
-    if(s < 1.73e5)return unitize(sig(s/3600), "hours");
+    if(s < 3600)  return sig(s/60) + " min";
+    if(s < 86400) return unitize(sig(s/3600), "hours");
     if(s < YEAR)  return unitize(sig(s/86400), "days");
     return bigWords(s/YEAR, "years");
   }
@@ -611,8 +689,40 @@
     var frame = document.querySelector(".scope-frame");
     RING = Math.max(18, (frame ? frame.clientWidth : 112)/2 - 12);
 
+    placeMark();
     resizeCanvas();
     update();
+  }
+
+  /* ---------------- the light of the year you were born ---------------- */
+
+  var birthYears = 0;
+
+  function placeMark(){
+    if(!birthYears || !YS.length){ markEl.classList.remove("on"); return; }
+    var d = birthYears * LY;
+    var reached = 0;
+    for(var i=0;i<ACTIVE.length;i++){ if(ACTIVE[i].d <= d) reached++; }
+    markEl.style.top = Math.round(logToY(Math.log10(d))) + "px";
+    markLab.innerHTML =
+      "<b>Light that left Earth the year you were born is here now</b>" +
+      "<i>" + fmtDist(d) + "  \u00b7  everything above this line could already know</i>";
+    markEl.classList.add("on");
+    return reached;
+  }
+
+  function setBirthYear(y){
+    var now = new Date().getFullYear();
+    if(!y || y > now || now - y < 1) return;
+    birthYears = now - y;
+    var reached = placeMark();
+    var d = birthYears * LY;
+    markLab.innerHTML =
+      "<b>Light that left Earth in " + y + " is here now</b>" +
+      "<i>" + fmtDist(d) + "  \u00b7  past " + reached + " of the " + ACTIVE.length +
+      " stops on this page</i>";
+    window.scrollTo({top: Math.max(0, logToY(Math.log10(d)) - window.innerHeight*0.5),
+                     behavior: reduced ? "auto" : "smooth"});
   }
 
   // piecewise-linear map, log10(metres) -> y
@@ -966,6 +1076,39 @@
     if(!ticking){ ticking = true; requestAnimationFrame(update); }
   }
 
+  /* ---------------- ride a photon ---------------- */
+
+  var riding = false, rideT0 = 0;
+
+  function fmtFlight(s){
+    if(s < 60)   return s.toFixed(1) + " s of flight";
+    if(s < 3600) return Math.floor(s/60) + " min " + Math.floor(s%60) + " s of flight";
+    return Math.floor(s/3600) + " h " + Math.floor((s%3600)/60) + " min of flight";
+  }
+  function startRide(){
+    riding = true;
+    rideT0 = performance.now();
+    rideBtn.textContent = "Stop";
+    rideBtn.classList.add("on");
+    window.scrollTo({top:0, behavior:"auto"});
+    requestAnimationFrame(rideStep);
+  }
+  function stopRide(){
+    riding = false;
+    rideBtn.textContent = "Ride a photon";
+    rideBtn.classList.remove("on");
+  }
+  function rideStep(now){
+    if(!riding) return;
+    var el = (now - rideT0)/1000;
+    var d  = 1.7 + C*el;
+    rideClk.textContent = fmtFlight(el);
+    var y = logToY(Math.log10(d)) - window.innerHeight*0.34;
+    if(y >= totalH - window.innerHeight){ stopRide(); return; }
+    window.scrollTo({top: Math.max(0,y), behavior:"auto"});
+    requestAnimationFrame(rideStep);
+  }
+
   /* ---------------- init ---------------- */
 
   buildStops();
@@ -974,6 +1117,25 @@
   document.getElementById("reset").addEventListener("click", function(){
     window.scrollTo({top:0, behavior: reduced ? "auto" : "smooth"});
   });
+
+  rideBtn.addEventListener("click", function(){ riding ? stopRide() : startRide(); });
+  ["wheel","touchstart","keydown"].forEach(function(ev){
+    window.addEventListener(ev, function(e){
+      if(!riding) return;
+      var t = e.target;
+      if(t && t.closest && t.closest(".ride")) return;   // tapping Stop is not a scroll
+      stopRide();
+    }, {passive:true});
+  });
+
+  var yearInput = document.getElementById("birth-year");
+  document.getElementById("birth-go").addEventListener("click", function(){
+    setBirthYear(parseInt(yearInput.value, 10));
+  });
+  yearInput.addEventListener("keydown", function(e){
+    if(e.key === "Enter"){ e.preventDefault(); setBirthYear(parseInt(yearInput.value,10)); }
+  });
+  yearInput.max = new Date().getFullYear();
 
   window.addEventListener("scroll", onScroll, {passive:true});
 
