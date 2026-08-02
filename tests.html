@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>scale.js — test report</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#e8e4dc; --dim:rgba(232,228,220,.62); --faint:rgba(232,228,220,.34);
+    --hair:rgba(232,228,220,.16); --pass:#7fc9a0; --fail:#e8836a;
+    --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+    --body:"IBM Plex Sans",ui-sans-serif,system-ui,sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0;padding:56px 34px 90px;background:#06080f;color:var(--ink);
+    font-family:var(--body);-webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:760px;margin:0 auto}
+  h1{font-family:var(--mono);font-size:13px;font-weight:500;letter-spacing:.22em;
+     text-transform:uppercase;color:var(--faint);margin:0 0 10px}
+  .tally{font-family:var(--mono);font-size:34px;font-weight:500;letter-spacing:-.01em;margin:0 0 6px}
+  .tally.ok{color:var(--pass)} .tally.bad{color:var(--fail)}
+  .meta{font-family:var(--mono);font-size:11px;color:var(--dim);margin:0 0 40px}
+  .meta a{color:var(--dim)}
+  h2{font-family:var(--mono);font-size:10.5px;font-weight:500;letter-spacing:.2em;
+     text-transform:uppercase;color:var(--faint);margin:34px 0 12px;
+     padding-bottom:9px;border-bottom:1px solid var(--hair)}
+  .t{display:flex;gap:11px;padding:6px 0;font-size:14.5px;line-height:1.45}
+  .t .m{font-family:var(--mono);font-size:12px;flex:none;width:12px}
+  .t.p .m{color:var(--pass)} .t.f .m{color:var(--fail)}
+  .t.p{color:var(--dim)}
+  .t .why{font-family:var(--mono);font-size:11.5px;color:var(--fail);
+          display:block;margin-top:6px;line-height:1.6}
+  footer{font-family:var(--mono);font-size:11px;color:var(--faint);
+         margin-top:52px;padding-top:20px;border-top:1px solid var(--hair);line-height:1.8}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>scale.js</h1>
+  <p class="tally" id="tally">running…</p>
+  <p class="meta" id="meta">&nbsp;</p>
+  <div id="out"></div>
+  <footer>
+    The same suite runs headless with <code>node test.js</code>.<br>
+    <a href="index.html">Distance</a> &nbsp;·&nbsp; <a href="time.html">Time</a>
+  </footer>
+</div>
+
+<script src="scale.js"></script>
+<script src="tests.js"></script>
+<script>
+(function(){
+  var out = document.getElementById("out");
+  var passed = 0, failed = 0, assertions = 0;
+
+  function line(cls, mark, name, why){
+    var d = document.createElement("div");
+    d.className = "t " + cls;
+    d.innerHTML = '<span class="m">' + mark + '</span><span>' +
+      name.replace(/[<>&]/g, function(c){ return {"<":"&lt;",">":"&gt;","&":"&amp;"}[c]; }) +
+      (why ? '<span class="why">' + why + '</span>' : '') + '</span>';
+    out.appendChild(d);
+  }
+
+  var is = {
+    ok: function(v, msg){ assertions++; if(!v) throw new Error(msg || "expected truthy"); },
+    eq: function(a, b, msg){
+      assertions++;
+      if(a !== b) throw new Error((msg ? msg + ": " : "") +
+        "got " + JSON.stringify(a) + ", want " + JSON.stringify(b));
+    },
+    close: function(a, b, eps, msg){
+      assertions++;
+      eps = eps == null ? 1e-6 : eps;
+      if(!(Math.abs(a-b) <= eps)) throw new Error((msg ? msg + ": " : "") +
+        "got " + a + ", want " + b);
+    },
+    throws: function(fn, msg){
+      assertions++;
+      var threw = false;
+      try { fn(); } catch(e){ threw = true; }
+      if(!threw) throw new Error(msg || "expected a throw");
+    }
+  };
+
+  var t = {
+    group: function(name){
+      var h = document.createElement("h2");
+      h.textContent = name;
+      out.appendChild(h);
+    },
+    test: function(name, fn){
+      try { fn(is); passed++; line("p", "\u2713", name); }
+      catch(e){ failed++; line("f", "\u2717", name, e.message); }
+    }
+  };
+
+  var t0 = performance.now();
+  ScaleTests(Scale, t);
+  var ms = (performance.now() - t0).toFixed(1);
+
+  var tally = document.getElementById("tally");
+  tally.textContent = failed ? failed + " failed, " + passed + " passed"
+                             : passed + " passed";
+  tally.className = "tally " + (failed ? "bad" : "ok");
+  document.getElementById("meta").textContent =
+    assertions.toLocaleString() + " assertions in " + ms + " ms";
+})();
+</script>
+</body>
+</html>

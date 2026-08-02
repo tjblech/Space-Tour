@@ -1,0 +1,13 @@
+{
+  "name": "measured-from-here",
+  "version": "1.0.0",
+  "description": "Two logarithmic scroll pages: one out to the edge of the observable universe, one back to the Planck time.",
+  "private": true,
+  "scripts": {
+    "test": "node test.js && node smoke.js",
+    "test:unit": "node test.js",
+    "test:smoke": "node smoke.js",
+    "serve": "python3 -m http.server 8080"
+  },
+  "license": "MIT"
+}
